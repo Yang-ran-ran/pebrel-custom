@@ -1,0 +1,40 @@
+version = 1
+renderer_packages = ["gpui", "gpui_platform", "gpui-component", "gpui-component-assets", "winit", "glutin", "crossfont"]
+
+[crates.pebrel_app]
+layer = "application"
+dependencies = ["pebrel_terminal", "pebrel_config", "pebrel_config_derive", "pebrel_settings", "pebrel_split", "pebrel-completions", "mobile/link"]
+build-dependencies = ["pebrel_settings"]
+dev-dependencies = []
+
+[crates.pebrel_terminal]
+layer = "core"
+
+[crates.pebrel_config]
+layer = "core"
+dev-dependencies = ["pebrel_config_derive"]
+
+[crates.pebrel_config_derive]
+layer = "core"
+dev-dependencies = ["pebrel_config"]
+
+[crates.pebrel-completions]
+layer = "core"
+
+[crates.pebrel_settings]
+layer = "core"
+zero_production_dependencies = true
+
+[crates.pebrel_split]
+layer = "core"
+zero_production_dependencies = true
+
+[crates.pebrel_hook]
+layer = "hook"
+zero_production_dependencies = true
+
+[crates.pebrel_gpui]
+layer = "lab"
+
+[crates."mobile/link"]
+layer = "core"

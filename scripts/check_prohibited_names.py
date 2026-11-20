@@ -1,0 +1,424 @@
+#!/usr/bin/env python3
+"""拒绝把竞品名称写入新增内容、提交说明或待推送提交。"""
+
+from __future__ import annotations
+
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import Iterable
+
+
+PROHIBITED_PATTERNS = (
+    re.compile(r"(?<![A-Za-z0-9_])tty[-_ ]?7(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])otty(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])netcaxx(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])netcat[-_ ]?ty(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])arxxx(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])cmux(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])ghostty(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])herdr(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])kaku(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])orca(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])wezterm(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])windows[-_ ]?terminal(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])alacritty(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])kitty(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])tabby(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])warp(?:[-_ ]?terminal)?(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])wave[-_ ]?terminal(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])electerm(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])termius(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])xshell(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])windterm(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])mobaxterm(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])iterm2?(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])hyper[-_ ]?terminal(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])rio[-_ ]?terminal(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])contour(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])extraterm(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])finalshell(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])royal[-_ ]?ts(?![A-Za-z0-9_])", re.IGNORECASE),
+    re.compile(r"(?<![A-Za-z0-9_])securecrt(?![A-Za-z0-9_])", re.IGNORECASE),
+)
+PROHIBITED_EXAMPLES = (
+    "tty7",
+    "otty",
+    "netcaxx",
+    "netcatty",
+    "arxxx",
+    "cmux",
+    "ghostty",
+    "herdr",
+    "kaku",
+    "orca",
+    "wezterm",
+    "Windows Terminal",
+    "Alacritty",
+    "Kitty",
+    "Tabby",
+    "Warp",
+)
+
+# 门禁必须能维护自己的关键词表；除此之外没有源码或文档例外。
+EXEMPT_PATHS = {
+    "scripts/check_prohibited_names.py",
+    # These fixtures intentionally contain both accepted and rejected names so
+    # the policy can test its own false-positive boundaries.
+    "scripts/tests/test_prohibited_names.py",
+    "scripts/tests/fixtures/prohibited_names/ordinary-comparison.md",
+}
+LEGAL_ATTRIBUTION_PATTERNS = (
+    re.compile(
+        r"^\s*(?:[#/;*=-]+\s*)?copyright\b[^;\n]*\b(?:project|contributors?|authors?)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^\s*(?:[#/;*=-]+\s*)?(?:third[- ]party|upstream)\s+(?:notice|attribution|project)\b[^;\n]*",
+        re.IGNORECASE,
+    ),
+)
+NOTICE_DERIVATION_PATTERN = re.compile(r"\bderives from [A-Z][A-Za-z0-9-]*\s*$")
+DEPENDENCY_REFERENCE_PATTERNS = (
+    re.compile(r"\bgit\s*=\s*[\"']https?://[^\"']+[\"']", re.IGNORECASE),
+    re.compile(r"\bsource\s*=\s*[\"']git\+https?://[^\"']+[\"']", re.IGNORECASE),
+)
+PROTOCOL_COMPATIBILITY_PATTERNS = (
+    re.compile(r"\bkitty\s+(?:graphics\s+protocol\b|图形协议)", re.IGNORECASE),
+    re.compile(r"\bKITTY_[A-Z0-9_]+\b"),
+    re.compile(r"\bkitty_(?:keyboard|seq|event|release|escape|input)[A-Za-z0-9_]*\b", re.IGNORECASE),
+    re.compile(r"\bkitty/(?:legacy|style|protocol)\b", re.IGNORECASE),
+    re.compile(r"\bkitty\s+(?:keyboard|protocol|escape|sequence)\b", re.IGNORECASE),
+    re.compile(r"\bThemeFormat::(?:WindowsTerminal|Kitty|Ghostty|WezTerm|Alacritty)\b"),
+    re.compile(
+        r"unsupported theme format; use Pebrel JSON, Windows Terminal JSON, Kitty, Ghostty, WezTerm or Alacritty",
+        re.IGNORECASE,
+    ),
+)
+
+# 移动端的原生依赖路径和远端命令是构建/兼容接口；只剔除这些确切引用，
+# 同一行的其他文案仍须检查，不能按目录或整个源码文件豁免。
+MOBILE_BUILD_REFERENCE_PATTERNS = tuple(re.compile(pattern) for pattern in (
+    r"[\"']mobile/android/ghostty/(?:UPSTREAM\.json|build/upstream(?:/arm64-v8a/licenses)?)[\"']",
+    r"[\"']assets/licenses/Ghostty(?:/Ghostty-MIT\.txt|-UPSTREAM\.json)[\"']",
+    r"[\"'](?:licenses/)?Ghostty-(?:MIT\.txt|UPSTREAM\.json)[\"']",
+    r"(?<=notices / )[\"']Ghostty[\"']",
+    r"[\"']include/ghostty/vt\.h[\"']",
+))
+REMOTE_SESSION_PATTERNS = tuple(re.compile(pattern) for pattern in (
+    r"\bSshSessionMode\.HERDR\b",
+    r"\bexec herdr(?=[\"'\s])",
+    r"\bherdr session (?:attach|stop) '[^'\n]+'",
+    r"\bcommand -v herdr(?=\s+>)",
+    r"\bGet-Command herdr(?= -ErrorAction\b)",
+    r"\bherdr session list --json\b",
+    r"\bherdr session attach(?= \$\{psQuote\()",
+    r"\bherdr --session(?= \$\{(?:quote|psQuote)\()",
+))
+# 发现器的类型标签是线协议的一部分；只允许明确的构造/分派位置，
+# 不放行任意字符串字面量，更不能吞掉同行的说明、链接或比较文案。
+REMOTE_DISCOVERY_TAG_PATTERNS = tuple(re.compile(pattern) for pattern in (
+    r'\bdata\["herdr"\]',
+    r'\bSshSessionMode\.HERDR\s+->\s+"herdr"',
+    r'^\s*"herdr"(?= ->)',
+    r'\bwarnings \+= "herdr"',
+    r"\[char\]30 \+ 'herdr'(?= \+ \[char\]10)",
+))
+# Model tags belong to the remote-session consumers and their behavioral tests,
+# not to arbitrary labels or UI strings elsewhere in the mobile tree.
+REMOTE_MODEL_REFERENCE_PATTERNS = tuple(re.compile(pattern) for pattern in (
+    r'\bRemoteSession\("herdr"(?=,)',
+    r'\b(?:session|it)\??\.kind (?:==|!=) "herdr"',
+))
+REMOTE_MODEL_CONSUMERS = (
+    "/connection/RemoteSessions.kt", "/connection/TmuxSessionControl.kt",
+    "/session/SessionRepository.kt",
+)
+
+
+def remote_reference_remainder(path: str, text: str) -> str:
+    is_test = path.startswith(("mobile/android/app/src/test/", "mobile/android/app/src/androidTest/"))
+    model_test = is_test and path.endswith("Test.kt") and any(
+        part in path for part in ("/connection/", "/session/")
+    )
+    if path.endswith(REMOTE_MODEL_CONSUMERS) or model_test:
+        for pattern in REMOTE_MODEL_REFERENCE_PATTERNS:
+            text = pattern.sub("", text)
+    if path.endswith("/connection/RemoteSessions.kt"):
+        for pattern in REMOTE_DISCOVERY_TAG_PATTERNS:
+            text = pattern.sub("", text)
+    for pattern in REMOTE_SESSION_PATTERNS:
+        text = pattern.sub("", text)
+    return text
+
+
+def mobile_reference_remainder(path: str, text: str) -> str:
+    if path == "mobile/android/third_party/reader-build/package-lock.json":
+        # 图形算法依赖的完整包名不是同名终端产品；保留锁文件中的真实坐标。
+        text = re.sub(r"\bd3-contour\b", "", text)
+    if path.startswith("mobile/tools/") or path in {
+        "mobile/android/app/build.gradle.kts", ".github/workflows/android-release.yml",
+    }:
+        for pattern in MOBILE_BUILD_REFERENCE_PATTERNS:
+            text = pattern.sub("", text)
+    if path in {"mobile/android/settings.gradle.kts", "mobile/android/app/build.gradle.kts"}:
+        text = text.replace('\":ghostty\"', "")
+    if path == "mobile/android/ghostty/src/main/cpp/bridge.h":
+        text = re.sub(r"^\s*#include <ghostty/vt\.h>", "", text)
+    if path in {"mobile/android/ghostty/UPSTREAM.json", "mobile/ssh/licenses/SOURCE.json"}:
+        text = re.sub(
+            r'"(?:project|source_url|url)":\s*"https://(?:github\.com|codeload\.github\.com|raw\.githubusercontent\.com)/[^"\s]+"',
+            "", text,
+        )
+    if path.startswith("mobile/android/app/src/") and path.endswith(".kt"):
+        text = remote_reference_remainder(path, text)
+        if path.endswith("/connection/SshSessionMode.kt"):
+            text = text.replace('HERDR("herdr")', "")
+    return text
+
+
+def git(*args: str) -> bytes:
+    return subprocess.check_output(["git", "-c", "i18n.logOutputEncoding=utf-8", *args], stderr=subprocess.DEVNULL)
+
+
+def prohibited(text: str) -> bool:
+    return any(pattern.search(text) for pattern in PROHIBITED_PATTERNS)
+
+
+def source_without_allowed_occurrences(path: str, text: str) -> str:
+    for pattern in LEGAL_ATTRIBUTION_PATTERNS:
+        text = pattern.sub("", text)
+    if path == "THIRD-PARTY-NOTICES":
+        # 许可证要求的来源声明：只放行行尾的“derives from 上游名”，同行其他文字仍检查。
+        text = NOTICE_DERIVATION_PATTERN.sub("", text)
+    if Path(path).name in {"Cargo.toml", "Cargo.lock"} and any(
+        pattern.search(text) for pattern in DEPENDENCY_REFERENCE_PATTERNS
+    ):
+        for pattern in DEPENDENCY_REFERENCE_PATTERNS:
+            text = pattern.sub("", text)
+    for pattern in PROTOCOL_COMPATIBILITY_PATTERNS:
+        text = pattern.sub("", text)
+    return mobile_reference_remainder(path, text)
+
+
+def prohibited_source_line(path: str, text: str) -> bool:
+    return prohibited(source_without_allowed_occurrences(path, text))
+
+
+def changed_paths(*revision_args: str) -> list[tuple[str, ...]]:
+    """Changed paths; a rename is (new, old) so its patch keeps both sides."""
+    raw = git("diff", *revision_args, "-M", "--name-status", "-z", "--diff-filter=ACMR", "--", ".")
+    fields = [field.decode("utf-8") for field in raw.split(b"\0")]
+    paths: list[tuple[str, ...]] = []
+    index = 0
+    while index < len(fields) and fields[index]:
+        if fields[index].startswith("R"):
+            paths.append((fields[index + 2], fields[index + 1]))
+            index += 3
+        else:
+            paths.append((fields[index + 1],))
+            index += 2
+    return paths
+
+
+def added_lines(paths: tuple[str, ...], *revision_args: str) -> Iterable[tuple[int, str]]:
+    # 只给新路径时 Git 看不到旧文件，移动的整份文件都会变成新增行；
+    # 两个路径一起给，改名检测后只剩真正改动的行，移动后新加的内容照样检查。
+    patch = git("diff", *revision_args, "-M", "--no-ext-diff", "--unified=0", "--", *paths)
+    yield from added_patch_lines(patch, None)
+
+
+def scan_changed_paths(hits: list[str], prefix: str, *revision_args: str) -> None:
+    for paths in changed_paths(*revision_args):
+        normalized = paths[0].replace("\\", "/")
+        if normalized in EXEMPT_PATHS:
+            continue
+        for line_no, line in added_lines(paths, *revision_args):
+            if prohibited_source_line(normalized, line):
+                hits.append(f"{prefix}{normalized}:{line_no}:{line}")
+
+
+def scan_added_lines(*revision_args: str) -> list[str]:
+    hits: list[str] = []
+    scan_changed_paths(hits, "", *revision_args)
+    return hits
+
+
+def added_patch_lines(patch: bytes, merge_parent_count: int | None) -> Iterable[tuple[int, str]]:
+    # Git 的 hunk 标题可在 UTF-8 码点中间截断；它不是新增源码。
+    # 先按物理行识别 ASCII 差异前缀，仅对真正新增的内容严格解码。
+    in_hunk = False
+    parents = merge_parent_count if merge_parent_count is not None else 1
+    prefix = b"+" * parents
+    for line_no, raw_line in enumerate(patch.split(b"\n"), 1):
+        raw_line = raw_line.removesuffix(b"\r")
+        if raw_line.startswith(b"diff --"):
+            in_hunk = False
+            continue
+        if raw_line.startswith(b"@@"):
+            in_hunk = True
+            continue
+        # 文件标题在 hunk 之前；正文里的多个 '+' 仍是需要检查的源码。
+        if in_hunk and raw_line.startswith(prefix):
+            yield line_no, raw_line[parents:].decode("utf-8")
+
+
+def scan_pending_commits(revision_range: str) -> list[str]:
+    hits: list[str] = []
+    commits = git("rev-list", "--reverse", revision_range).decode("ascii").splitlines()
+    for commit in commits:
+        parents = git("rev-list", "--parents", "-n", "1", commit).decode("ascii").split()
+        parent = parents[1] if len(parents) > 1 else None
+        merge_parent_count = len(parents) - 1
+        merge_commit = merge_parent_count > 1
+        if merge_commit:
+            # Combined diff reports only content resolved against all parents;
+            # comparing to one parent would replay the other branch's changes.
+            paths = git("diff-tree", "--cc", "--no-commit-id", "--name-only", "-z", "-r", commit)
+        elif parent:
+            # Comparing against the first parent includes a merge resolution's
+            # actual additions for ordinary commits.
+            scan_changed_paths(hits, f"{commit}:", parent, commit)
+            continue
+        else:
+            paths = git("diff-tree", "--root", "--no-commit-id", "--name-only", "-z", "-r", commit)
+        for raw_path in paths.split(b"\0"):
+            if not raw_path:
+                continue
+            path = raw_path.decode("utf-8")
+            normalized = path.replace("\\", "/")
+            if normalized in EXEMPT_PATHS:
+                continue
+            if merge_commit:
+                patch = git("show", "--format=", "--cc", "--no-ext-diff", "--unified=0", commit, "--", path)
+            else:
+                patch = git("show", "--format=", "--no-ext-diff", "--unified=0", commit, "--", path)
+            for line_no, line in added_patch_lines(
+                patch, merge_parent_count if merge_commit else None
+            ):
+                if prohibited_source_line(normalized, line):
+                    hits.append(f"{commit}:{normalized}:{line_no}:{line}")
+    return hits
+
+
+def scan_message(path: Path) -> list[str]:
+    return [
+        f"{line_no}:{line}"
+        for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if prohibited(line)
+    ]
+
+
+def resolved_commit(revision: str) -> str:
+    if not revision or re.fullmatch(r"0+", revision):
+        raise ValueError(f"missing or zero revision: {revision!r}")
+    try:
+        return git("rev-parse", "--verify", f"{revision}^{{commit}}").decode("ascii").strip()
+    except (subprocess.CalledProcessError, UnicodeDecodeError) as exc:
+        raise ValueError(f"cannot resolve revision {revision!r}") from exc
+
+
+def checked_range(base: str, head: str) -> tuple[str, str]:
+    base_commit = resolved_commit(base)
+    head_commit = resolved_commit(head)
+    try:
+        common = git("merge-base", base_commit, head_commit).decode("ascii").strip()
+    except (subprocess.CalledProcessError, UnicodeDecodeError) as exc:
+        raise ValueError(f"base {base_commit} and head {head_commit} are unrelated") from exc
+    if not common:
+        raise ValueError(f"base {base_commit} and head {head_commit} have no common ancestor")
+    return common, head_commit
+
+
+def scan_commit_messages(revision_range: str) -> list[str]:
+    hits: list[str] = []
+    commits = git("rev-list", "--reverse", revision_range).decode("ascii").splitlines()
+    for commit in commits:
+        message = git("show", "-s", "--format=%B", commit).decode("utf-8")
+        for line_no, line in enumerate(message.splitlines(), 1):
+            if prohibited(line):
+                hits.append(f"commit-message:{commit}:{line_no}:{line}")
+    return hits
+
+
+def scan_range(base: str, head: str) -> list[str]:
+    base_commit, head_commit = checked_range(base, head)
+    revision_range = f"{base_commit}..{head_commit}"
+    hits = scan_commit_messages(revision_range)
+    # Scan each commit's added lines so a name added and later deleted in the
+    # same range cannot disappear from the final two-commit diff.
+    hits.extend(scan_pending_commits(revision_range))
+    return hits
+
+
+def pending_push_range() -> str | None:
+    result = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    upstream = result.stdout.decode("utf-8").strip()
+    return f"{upstream}..HEAD" if result.returncode == 0 and upstream else None
+
+
+def report(title: str, hits: list[str]) -> int:
+    if not hits:
+        return 0
+    print(f"ERROR: {title}\n" + "\n".join(hits), file=sys.stderr)
+    return 1
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) < 2:
+        print(
+            "usage: check_prohibited_names.py staged|message|push [message-file] | "
+            "range --base BASE --head HEAD",
+            file=sys.stderr,
+        )
+        return 2
+
+    mode = argv[1]
+    if mode == "staged":
+        return report("staged additions contain prohibited product names", scan_added_lines("--cached"))
+    if mode == "message":
+        if len(argv) != 3:
+            print("message mode requires the commit message path", file=sys.stderr)
+            return 2
+        return report("commit message contains prohibited product names", scan_message(Path(argv[2])))
+    if mode == "push":
+        revision_range = pending_push_range()
+        if revision_range is None:
+            print("No upstream branch; skipping pending-push name check")
+            return 0
+        message_text = git("log", "--format=%H:%s%n%b", revision_range).decode("utf-8")
+        hits = [
+            f"commit-message:{line_no}:{line}"
+            for line_no, line in enumerate(message_text.splitlines(), 1)
+            if prohibited(line)
+        ]
+        # 逐提交看新增行，避免“先加入、后删除”在最终 range diff 中被抵消。
+        hits.extend(scan_pending_commits(revision_range))
+        return report("commits pending push contain prohibited product names", hits)
+    if mode == "range":
+        if len(argv) != 6 or argv[2] != "--base" or argv[4] != "--head":
+            print("range mode requires --base BASE --head HEAD", file=sys.stderr)
+            return 2
+        try:
+            hits = scan_range(argv[3], argv[5])
+        except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+            print(f"ERROR: cannot scan prohibited-name range: {exc}", file=sys.stderr)
+            return 1
+        return report("range contains prohibited product names", hits)
+
+    print(f"unknown mode: {mode}", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main(sys.argv))
+    except (OSError, UnicodeError, subprocess.CalledProcessError) as exc:
+        print(f"ERROR: cannot read naming-check input: {exc}", file=sys.stderr)
+        raise SystemExit(1)

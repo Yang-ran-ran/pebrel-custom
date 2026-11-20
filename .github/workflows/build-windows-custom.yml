@@ -1,0 +1,76 @@
+name: Build Windows package (custom)
+
+on:
+  workflow_dispatch:
+    inputs:
+      package_version:
+        description: Version label for the generated files
+        required: true
+        default: 2.5.0
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+  RUST_TOOLCHAIN: "1.97.1"
+  PYTHONUTF8: "1"
+
+jobs:
+  windows-x64:
+    name: Build Pebrel for Windows x64
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Validate package version
+        shell: pwsh
+        env:
+          PACKAGE_VERSION: ${{ inputs.package_version }}
+        run: |
+          if ($env:PACKAGE_VERSION -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
+            throw 'Use the exact stable version from pebrel_app/Cargo.toml.'
+          }
+          $manifest = Get-Content pebrel_app/Cargo.toml -Raw -Encoding UTF8
+          $match = [regex]::Match($manifest, '(?m)^version\s*=\s*"(?<version>[0-9]+\.[0-9]+\.[0-9]+)"\s*$')
+          if (-not $match.Success -or $match.Groups['version'].Value -ne $env:PACKAGE_VERSION) {
+            throw 'The package version must exactly match pebrel_app/Cargo.toml.'
+          }
+      - name: Install pinned Inno Setup
+        run: choco install innosetup --version=6.7.3 -y --no-progress
+      - name: Prepare Windows console runtime
+        shell: pwsh
+        run: ./scripts/prepare-windows-runtime.ps1 -Destination assets/windows/conhost
+      - name: Build GPUI application and runtime helper
+        shell: pwsh
+        run: ./scripts/build-windows-product.ps1 -Configuration release -TargetDirectory target
+      - name: Package portable ZIP
+        shell: pwsh
+        env:
+          PACKAGE_VERSION: ${{ inputs.package_version }}
+        run: ./scripts/package-release.ps1 -Version $env:PACKAGE_VERSION -PackageBrand Pebrel -OutputDirectory dist -TargetDirectory target -Force
+      - name: Build installer EXE
+        shell: pwsh
+        env:
+          PACKAGE_VERSION: ${{ inputs.package_version }}
+        run: ./scripts/build-installer.ps1 -Version $env:PACKAGE_VERSION -PackageBrand Pebrel -OutputDirectory dist -TargetDirectory target -Force
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: pebrel-windows-x64
+          path: |
+            dist/Pebrel-v${{ inputs.package_version }}-windows-x64.zip
+            dist/Pebrel-v${{ inputs.package_version }}-windows-x64-setup.exe
+          if-no-files-found: error
+          retention-days: 14
