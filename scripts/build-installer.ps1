@@ -112,10 +112,21 @@ if (-not $AllowStale) {
         'pebrel-completions', 'pebrel_gpui', 'pebrel_settings', 'pebrel_split'
     ) | ForEach-Object { Join-Path $repo $_ }
     $sourceScopes = @(
-        @{ Binary = (Join-Path $targetRoot 'pebrel-cli.exe'); Roots = $memberDirs + @((Join-Path $repo 'Cargo.toml')) },
-        @{ Binary = $packagedExe; Roots = $memberDirs + @(
-        @{ Binary = (Join-Path $targetRoot 'pebrel-hook.exe'); Roots = @(
-            (Join-Path $repo 'pebrel_hook'), (Join-Path $repo 'Cargo.toml')) }
+        @{
+            Binary = (Join-Path $targetRoot 'pebrel-cli.exe')
+            Roots = $memberDirs + @((Join-Path $repo 'Cargo.toml'))
+        },
+        @{
+            Binary = $packagedExe
+            Roots = $memberDirs + @((Join-Path $repo 'Cargo.toml'))
+        },
+        @{
+            Binary = (Join-Path $targetRoot 'pebrel-hook.exe')
+            Roots = @(
+                (Join-Path $repo 'pebrel_hook'),
+                (Join-Path $repo 'Cargo.toml')
+            )
+        }
     )
     foreach ($scope in $sourceScopes) {
         $newestSource = [datetime]::MinValue
