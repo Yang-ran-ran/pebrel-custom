@@ -394,7 +394,7 @@ impl Shader {
         .detach();
     }
 
-    pub fn fail(&mut self, error: &anyhow::Error, cx: &mut Context<Self>) {
+    pub fn fail(&mut self, error: &anyhow::Error, cx: &mut Context<'_, Self>) {
         if self.failed {
             return;
         }
