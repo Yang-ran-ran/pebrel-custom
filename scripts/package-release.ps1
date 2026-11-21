@@ -132,7 +132,7 @@ function Assert-FreshBinaries {
         'pebrel-completions', 'pebrel_gpui', 'pebrel_settings', 'pebrel_split'
     ) | ForEach-Object { Join-Path $repo $_ }
     $appSources = $memberDirs + @(
-        (Join-Path $repo 'Cargo.toml'),
+        (Join-Path $repo 'Cargo.toml')
     )
     $checks = @(
         @{ Binary = $manifest['pebrel.exe']; Newest = Get-NewestSourceTime $appSources },
