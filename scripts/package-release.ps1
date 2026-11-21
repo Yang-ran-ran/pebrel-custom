@@ -133,7 +133,6 @@ function Assert-FreshBinaries {
     ) | ForEach-Object { Join-Path $repo $_ }
     $appSources = $memberDirs + @(
         (Join-Path $repo 'Cargo.toml'),
-        (Join-Path $repo '..\gpui-component-fork\crates')
     )
     $checks = @(
         @{ Binary = $manifest['pebrel.exe']; Newest = Get-NewestSourceTime $appSources },

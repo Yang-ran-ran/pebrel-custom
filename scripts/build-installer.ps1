@@ -114,7 +114,6 @@ if (-not $AllowStale) {
     $sourceScopes = @(
         @{ Binary = (Join-Path $targetRoot 'pebrel-cli.exe'); Roots = $memberDirs + @((Join-Path $repo 'Cargo.toml')) },
         @{ Binary = $packagedExe; Roots = $memberDirs + @(
-            (Join-Path $repo 'Cargo.toml'), (Join-Path $repo '..\gpui-component-fork\crates')) },
         @{ Binary = (Join-Path $targetRoot 'pebrel-hook.exe'); Roots = @(
             (Join-Path $repo 'pebrel_hook'), (Join-Path $repo 'Cargo.toml')) }
     )

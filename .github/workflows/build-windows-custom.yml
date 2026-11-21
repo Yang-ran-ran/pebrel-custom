@@ -47,7 +47,7 @@ jobs:
           if (-not $match.Success -or $match.Groups['version'].Value -ne $env:PACKAGE_VERSION) {
             throw 'The package version must exactly match pebrel_app/Cargo.toml.'
           }
-      - name: Install pinned Inno Setup
+      - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
       - name: Prepare Windows console runtime
         shell: pwsh
