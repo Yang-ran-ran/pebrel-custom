@@ -88,7 +88,7 @@ impl ProviderKind {
             Self::Ollama => "http://localhost:11434/v1",
             Self::OpenRouter => "https://openrouter.ai/api/v1",
             Self::Qwen => "https://dashscope.aliyuncs.com/compatible-mode/v1",
-            Self::DeepSeek => "https://api.deepseek.com/v1",
+            Self::DeepSeek => "https://api.deepseek.com",
             Self::Kimi => "https://api.moonshot.ai/v1",
             Self::Zhipu => "https://open.bigmodel.cn/api/paas/v4",
             Self::Doubao => "https://ark.cn-beijing.volces.com/api/v3",

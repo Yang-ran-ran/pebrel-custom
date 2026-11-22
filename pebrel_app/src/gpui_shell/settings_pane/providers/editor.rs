@@ -276,18 +276,18 @@ impl SettingsPane {
                             div()
                                 .text_size(px(12.0))
                                 .font_semibold()
-                                .child(language.pick("DeepSeek API 价格参考（元 / 百万 Tokens）", "DeepSeek API pricing (CNY / 1M tokens)")),
+                                .child(language.pick("DeepSeek API 价格提示（美元 / 百万 Tokens）", "DeepSeek API pricing (USD / 1M tokens)")),
                         )
                         .child(div().text_size(px(11.0)).text_color(muted).child(
                             language.pick(
-                                "Flash：缓存命中 0.02 / 0.04，未命中 1 / 2，输出 4 / 8；Pro：缓存命中 0.15 / 0.30，未命中 4.5 / 9，输出 13.5 / 27。每组数字依次为谷时 / 峰时。",
-                                "Flash: cache hit 0.02 / 0.04, cache miss 1 / 2, output 4 / 8; Pro: cache hit 0.15 / 0.30, cache miss 4.5 / 9, output 13.5 / 27. Each pair is off-peak / peak.",
+                                "Flash：缓存命中 $0.003 / $0.006，未命中 $0.15 / $0.30，输出 $0.60 / $1.20；Pro：缓存命中 $0.022 / $0.044，未命中 $0.66 / $1.32，输出 $1.98 / $3.96。每组数字依次为谷时 / 峰时。",
+                                "Flash: cache hit $0.003 / $0.006, cache miss $0.15 / $0.30, output $0.60 / $1.20; Pro: cache hit $0.022 / $0.044, cache miss $0.66 / $1.32, output $1.98 / $3.96. Each pair is off-peak / peak.",
                             ),
                         ))
                         .child(div().text_size(px(11.0)).text_color(muted).child(
                             language.pick(
-                                "峰时：北京时间工作日 9:00–12:00、14:00–18:00（法定节假日除外）；其余为谷时。价格可能调整，请以 DeepSeek 官方价格页为准。",
-                                "Peak: weekdays 09:00–12:00 and 14:00–18:00 Beijing time, excluding public holidays; all other times are off-peak. Prices may change; check DeepSeek's official pricing page.",
+                                "峰时：北京时间工作日 9:00–12:00、14:00–18:00（中国法定节假日除外）；其余时段（含周末及法定节假日全天）为谷时。价格可能调整，请以 DeepSeek 官方价格页为准。",
+                                "Peak: weekdays 09:00–12:00 and 14:00–18:00 Beijing time, excluding Chinese public holidays. All other times, including weekends and holidays, are off-peak. Prices may change; check DeepSeek's official pricing page.",
                             ),
                         )),
                 )
