@@ -268,18 +268,20 @@ impl SettingsPane {
         else {
             return;
         };
-        if !matches!(provider.agent_kind(), AgentKind::Claude | AgentKind::Codex) {
-            self.provider_status =
-                Some(ProviderStatus::Notice(crate::i18n::Message::ProvidersCliUnsupported));
+        let agent = provider.agent_kind();
+        if !crate::ai_providers::supports_agent_api(agent) {
+            self.provider_status = Some(ProviderStatus::Notice(
+                crate::i18n::Message::ProvidersCliUnsupported,
+            ));
             cx.notify();
             return;
         }
         if self.provider_codex_confirm.as_deref() != Some(id) {
             self.provider_codex_confirm = Some(id.to_owned());
-            self.provider_status = Some(if provider.agent_kind() == AgentKind::Claude {
-                ProviderStatus::ClaudeConfirmation
-            } else {
-                ProviderStatus::CodexConfirmation
+            self.provider_status = Some(match agent {
+                AgentKind::Claude => ProviderStatus::ClaudeConfirmation,
+                AgentKind::Codex => ProviderStatus::CodexConfirmation,
+                _ => ProviderStatus::AgentApiConfirmation(agent),
             });
             cx.notify();
             return;
@@ -297,23 +299,12 @@ impl SettingsPane {
         self.provider_status =
             Some(ProviderStatus::Notice(crate::i18n::Message::ProvidersApplying));
         let work = cx.background_executor().spawn(async move {
-            let claude = provider.agent_kind() == AgentKind::Claude;
-            let path = if claude {
-                crate::ai_providers::apply_claude_provider(&provider)
-            } else {
-                crate::codex_config::apply_provider(&provider)
-            }?;
-            next.cli_active.insert(provider.agent_kind().slug().to_owned(), provider.id.clone());
+            let agent = provider.agent_kind();
+            let path = crate::ai_providers::apply_provider_for_agent(&provider)?;
+            next.cli_active.insert(agent.slug().to_owned(), provider.id.clone());
             next.active_id = provider.id;
             crate::ai_providers::save(&next).map_err(|error| error.to_string())?;
-            Ok::<_, String>((
-                next,
-                if claude {
-                    ProviderStatus::AppliedToClaude(path)
-                } else {
-                    ProviderStatus::AppliedToCodex(path)
-                },
-            ))
+            Ok::<_, String>((next, ProviderStatus::AppliedToAgent { agent, path }))
         });
         // 写入一旦开始就完成收尾；保留实体，避免关闭设置导致结果丢失。
         let owner = cx.entity();
