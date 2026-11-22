@@ -56,7 +56,7 @@ jobs:
         with:
           components: rustfmt
       - name: rustfmt
-        run: cargo +nightly fmt --all -- --check
+        run: cargo +nightly fmt --all -- --check --config style_edition=2021
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
