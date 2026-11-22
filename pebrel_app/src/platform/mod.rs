@@ -19,6 +19,8 @@ pub mod capabilities;
 pub mod credentials;
 pub mod dirs;
 pub(crate) mod distribution;
+pub(crate) mod deepseek_harness;
+pub(crate) mod deepseek_harness;
 #[cfg(feature = "gpui-shell")]
 pub(crate) mod effect_activity;
 pub(crate) mod elevation;
