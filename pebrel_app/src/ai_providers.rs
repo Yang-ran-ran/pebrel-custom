@@ -22,7 +22,24 @@ pub use editor::{
     apply_config_draft, config_text, load_auth_document, parse_auth_draft, save_provider_draft,
 };
 mod models;
-pub use agent_config::apply_claude_provider;
+pub use agent_config::{apply_claude_provider, apply_provider_for_agent};
+
+pub fn supports_agent_api(agent: crate::ai_agents::AgentKind) -> bool {
+    use crate::ai_agents::AgentKind;
+    matches!(
+        agent,
+        AgentKind::Claude
+            | AgentKind::Codex
+            | AgentKind::Copilot
+            | AgentKind::Qwen
+            | AgentKind::CodeBuddy
+            | AgentKind::Droid
+            | AgentKind::Grok
+            | AgentKind::Kimi
+            | AgentKind::Aider
+            | AgentKind::Goose
+    )
+}
 pub use models::{configured_models, fetch_models, parse_model_list};
 
 const STORE_FILE: &str = "pebrel_providers.json";
