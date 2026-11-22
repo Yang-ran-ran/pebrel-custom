@@ -14,9 +14,9 @@ pub(crate) fn registered_install_directory() -> Option<PathBuf> {
         return None;
     }
     for root in [
-        r"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
-        r"HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
-        r"HKLM\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+        r"HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall",
+        r"HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall",
+        r"HKLM\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
     ] {
         let output = Command::new("reg.exe").args(["query", root, "/s"]).output().ok()?;
         if !output.status.success() {
@@ -87,10 +87,10 @@ pub(crate) fn run_dsh(cli: &Path, arguments: &[&str]) -> io::Result<()> {
         if extension_is_cmd {
             // Windows command scripts must be invoked through cmd.exe. The only
             // interpolated values are absolute filesystem paths, quoted as one argv.
-            let mut command_line = format!("\\"\\"{}\\"", cli.display());
+            let mut command_line = format!("\"\"{}\"", cli.display());
             for argument in arguments {
                 command_line.push(' ');
-                command_line.push_str(&format!("\\"{}\\"", argument.replace('"', "\\"\\"")));
+                command_line.push_str(&format!("\"{}\"", argument.replace('"', "\"\"")));
             }
             command_line.push('"');
             let status = Command::new("cmd.exe")
