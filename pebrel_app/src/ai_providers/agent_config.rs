@@ -754,4 +754,43 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn deepseek_harness_credential_write_preserves_other_refs_and_records() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join(".credentials.yaml");
+        std::fs::write(
+            &path,
+            "version: 1\n# keep this note\nrefs:\n  OPENAI_API_KEY: existing\nrecords:\n  llm-pi-ai/openai-codex:\n    kind: grant\n    payload:\n      access: grant-token\n",
+        ).unwrap();
+
+        write_harness_credential_ref(&path, "DEEPSEEK_API_KEY", "sk-deepseek-test").unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        let parsed: serde_yaml::Value = serde_yaml::from_str(&content).unwrap();
+        assert_eq!(parsed["refs"]["OPENAI_API_KEY"], "existing");
+        assert_eq!(parsed["refs"]["DEEPSEEK_API_KEY"], "sk-deepseek-test");
+        assert_eq!(parsed["records"]["llm-pi-ai/openai-codex"]["payload"]["access"], "grant-token");
+        assert!(content.contains("# keep this note"));
+        assert!(path.with_file_name(".credentials.yaml.lock").exists() == false);
+        crate::platform::private_file::assert_private(&path);
+    }
+
+    #[test]
+    fn deepseek_harness_credential_write_updates_only_its_own_reference() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join(".credentials.yaml");
+        std::fs::write(
+            &path,
+            "version: 1\nrefs:\n  DEEPSEEK_API_KEY: old-key # credential note\n  OTHER_API_KEY: keep\n",
+        ).unwrap();
+
+        write_harness_credential_ref(&path, "DEEPSEEK_API_KEY", "new-key").unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        let parsed: serde_yaml::Value = serde_yaml::from_str(&content).unwrap();
+        assert_eq!(parsed["refs"]["DEEPSEEK_API_KEY"], "new-key");
+        assert_eq!(parsed["refs"]["OTHER_API_KEY"], "keep");
+        assert!(content.contains("# credential note"));
+    }
 }

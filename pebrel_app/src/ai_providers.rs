@@ -38,6 +38,7 @@ pub fn supports_agent_api(agent: crate::ai_agents::AgentKind) -> bool {
             | AgentKind::Kimi
             | AgentKind::Aider
             | AgentKind::Goose
+            | AgentKind::DeepSeekHarness
     )
 }
 pub use models::{configured_models, fetch_models, parse_model_list};
