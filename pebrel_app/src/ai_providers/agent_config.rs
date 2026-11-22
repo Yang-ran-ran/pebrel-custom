@@ -104,11 +104,159 @@ pub fn apply_provider_for_agent(provider: &AiProvider) -> Result<PathBuf, String
         AgentKind::Kimi => apply_kimi_provider(provider),
         AgentKind::Aider => apply_aider_provider(provider),
         AgentKind::Goose => apply_goose_provider(provider),
+        AgentKind::DeepSeekHarness => apply_deepseek_harness_provider(provider),
         _ => Err(format!(
             "{} does not expose a verified file-based BYOK provider interface in this build; use its own model setup flow.",
             provider.agent_kind().display_name()
         )),
     }
+}
+
+
+/// DeepSeek Harness reads this reference through its own credential service.
+/// Keep the key in the Harness home store, not in Cordis plugin configuration.
+fn apply_deepseek_harness_provider(provider: &AiProvider) -> Result<PathBuf, String> {
+    if provider.kind != ProviderKind::DeepSeek {
+        return Err("DeepSeek Harness requires the DeepSeek API provider preset".into());
+    }
+    let key = api_key(provider)?;
+    let home = std::env::var_os("DSH_HOME")
+        .map(PathBuf::from)
+        .unwrap_or(home_dir()?.join(".dsh"));
+    let path = home.join(".credentials.yaml");
+    write_harness_credential_ref(&path, "DEEPSEEK_API_KEY", key.as_str())
+        .map_err(|error| format!("Could not update the DeepSeek Harness credential store: {error}"))?;
+    Ok(path)
+}
+
+/// Serialize with the same filename.lock convention as dsh-atomic-write.
+/// The Harness watcher reloads the versioned YAML document after replacement.
+fn write_harness_credential_ref(path: &Path, name: &str, secret: &str) -> io::Result<()> {
+    use std::fs::OpenOptions;
+    use std::io::Write as _;
+    use std::time::{Duration, Instant};
+
+    let parent = path.parent().ok_or_else(|| io::Error::other("credential path has no parent"))?;
+    std::fs::create_dir_all(parent)?;
+    let mut lock_name = path.as_os_str().to_owned();
+    lock_name.push(".lock");
+    let lock_path = PathBuf::from(lock_name);
+    let deadline = Instant::now() + Duration::from_secs(3);
+    let mut delay = Duration::from_millis(20);
+    let _lock = loop {
+        match OpenOptions::new().write(true).create_new(true).open(&lock_path) {
+            Ok(mut file) => {
+                let guard = HarnessCredentialLock(lock_path.clone());
+                writeln!(file, "{}", std::process::id())?;
+                file.sync_all()?;
+                break guard;
+            },
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+                let stale = std::fs::metadata(&lock_path)
+                    .and_then(|metadata| metadata.modified())
+                    .ok()
+                    .and_then(|modified| modified.elapsed().ok())
+                    .is_some_and(|age| age >= Duration::from_secs(30));
+                if stale {
+                    let _ = std::fs::remove_file(&lock_path);
+                    continue;
+                }
+                if Instant::now() >= deadline {
+                    return Err(io::Error::new(
+                        io::ErrorKind::WouldBlock,
+                        "DeepSeek Harness credentials are being updated by another process",
+                    ));
+                }
+                std::thread::sleep(delay);
+                delay = std::cmp::min(delay * 2, Duration::from_millis(200));
+            },
+            Err(error) => return Err(error),
+        }
+    };
+
+    let old = match std::fs::read(path) {
+        Ok(bytes) => Some(bytes),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => None,
+        Err(error) => return Err(error),
+    };
+    let source = old.as_deref().unwrap_or_default();
+    let source = std::str::from_utf8(source)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    if !source.trim().is_empty() {
+        let parsed: serde_yaml::Value = serde_yaml::from_str(source)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        if !parsed.is_mapping() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "DeepSeek Harness credentials document must be a YAML mapping",
+            ));
+        }
+    }
+
+    let yaml_secret = serde_yaml::to_string(&serde_yaml::Value::String(secret.to_owned()))
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    let yaml_secret = yaml_secret.trim_end();
+    let next = patch_harness_refs(source, name, yaml_secret);
+    let parsed: serde_yaml::Value = serde_yaml::from_str(&next)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    let value = parsed
+        .get("refs")
+        .and_then(serde_yaml::Value::as_mapping)
+        .and_then(|refs| refs.get(&serde_yaml::Value::String(name.to_owned())))
+        .and_then(serde_yaml::Value::as_str);
+    if value != Some(secret) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "DeepSeek Harness credential reference did not round-trip",
+        ));
+    }
+    crate::atomic_file::write_private(path, next.as_bytes())?;
+    drop(_lock);
+    Ok(())
+}
+
+struct HarnessCredentialLock(PathBuf);
+
+impl Drop for HarnessCredentialLock {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
+/// Patch only one entry under refs, retaining unrelated refs, records and
+/// comments. The complete document is parsed again before the atomic commit.
+fn patch_harness_refs(source: &str, name: &str, encoded: &str) -> String {
+    let mut lines: Vec<String> = source.lines().map(str::to_owned).collect();
+    let refs_index = lines.iter().position(|line| line == "refs:");
+    if let Some(start) = refs_index {
+        let end = lines.iter().enumerate().skip(start + 1).find_map(|(index, line)| {
+            (!line.trim().is_empty()
+                && !line.starts_with(' ')
+                && !line.starts_with('\t'))
+                .then_some(index)
+        }).unwrap_or(lines.len());
+        let key_prefix = format!("{name}:");
+        let quoted_prefix = format!("\"{name}\":");
+        if let Some(index) = (start + 1..end).find(|index| {
+            let entry = lines[*index].trim_start();
+            entry.starts_with(&key_prefix) || entry.starts_with(&quoted_prefix)
+        }) {
+            let suffix = lines[index].find(" #").map(|position| &lines[index][position..]).unwrap_or("");
+            lines[index] = format!("  {name}: {encoded}{suffix}");
+        } else {
+            lines.insert(end, format!("  {name}: {encoded}"));
+        }
+    } else {
+        if !lines.iter().any(|line| line.starts_with("version:")) {
+            lines.insert(0, "version: 1".into());
+        }
+        let records = lines.iter().position(|line| line == "records:");
+        let mut insert = records.unwrap_or(lines.len());
+        lines.insert(insert, "refs:".into());
+        insert += 1;
+        lines.insert(insert, format!("  {name}: {encoded}"));
+    }
+    format!("{}\n", lines.join("\n"))
 }
 
 fn api_key(provider: &AiProvider) -> Result<Zeroizing<String>, String> {
