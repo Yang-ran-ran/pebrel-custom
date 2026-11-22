@@ -25,8 +25,6 @@ pub(super) enum ProviderStatus {
     AppliedToCodex(std::path::PathBuf),
     AppliedToClaude(std::path::PathBuf),
     ClaudeConfirmation,
-    AgentApiConfirmation(crate::ai_agents::AgentKind),
-    AppliedToAgent { agent: crate::ai_agents::AgentKind, path: std::path::PathBuf },
     Error(String),
 }
 
@@ -43,18 +41,6 @@ impl ProviderStatus {
         match self {
             Self::Notice(message) => language.text(*message).into(),
             Self::ClaudeConfirmation => language.text(crate::i18n::Message::ProvidersClaudeConfirmation).into(),
-            Self::AgentApiConfirmation(agent) => format!(
-                "{} {} {}",
-                language.pick("再次点击确认：将 API 配置应用到", "Click again to apply the API configuration to"),
-                agent.display_name(),
-                language.pick("的本地配置文件；API Key 使用私有权限写入并备份原文件。", "local configuration; the API key is written with private permissions and the original file is backed up.")
-            ),
-            Self::AppliedToAgent { agent, path } => format!(
-                "{} {}: {}",
-                language.pick("已应用 API 配置到", "Applied API configuration to"),
-                agent.display_name(),
-                path.display()
-            ),
             Self::AppliedToClaude(path) => format!("{}: {}", language.text(crate::i18n::Message::ProvidersAppliedClaude), path.display()),
             Self::ModelsFetched(count) => language.text(crate::i18n::Message::ProvidersModelsFetched).replace("{count}", &count.to_string()),
             Self::Saved => language.pick("供应商配置已保存", "Provider settings saved").into(),
