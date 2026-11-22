@@ -538,7 +538,7 @@ fn kimi_capabilities_are_declared() {
 
 #[test]
 fn claude_style_agents_share_the_lifecycle_under_their_own_source() {
-    for source in ["qoder", "codebuddy", "qwen", "droid"] {
+    for source in ["qoder", "codebuddy", "qwen", "droid", "deepseek-harness"] {
         let parse = |body: &str| {
             let raw = format!("nebula-hook/1 source={source} pane=3\n{body}");
             parse_remote_envelope(raw.as_bytes(), Some(3))

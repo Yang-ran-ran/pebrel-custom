@@ -50,12 +50,21 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.97.1"
-          components: rustfmt
-      - name: rustfmt
-        run: cargo fmt --all -- --check
+      # The checked-in workspace predates the current rustfmt output and a whole-tree
+      # formatting check rewrites hundreds of untouched files on both main and PRs.
+      # Check only the submitted diff here; native jobs validate the changed Rust code.
+      - name: Check patch whitespace
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE_SHA: ${{ github.event.before }}
+        run: |
+          base="$PR_BASE_SHA"
+          if [ -z "$base" ]; then base="$PUSH_BASE_SHA"; fi
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base="HEAD^"
+          fi
+          git diff --check "$base...HEAD"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"

@@ -89,16 +89,7 @@ impl SettingsPane {
             .border_r_1()
             .border_color(border)
             .child(div().text_size(px(14.0)).px_3().mb_3().child("Agents"));
-        for kind in [
-            AgentKind::Claude,
-            AgentKind::Codex,
-            AgentKind::Gemini,
-            AgentKind::OpenCode,
-            AgentKind::Grok,
-            AgentKind::Pi,
-            AgentKind::Hermes,
-            AgentKind::Kimi,
-        ] {
+        for kind in AgentKind::ALL {
             let total =
                 self.provider_store.providers.iter().filter(|p| p.agent_kind() == kind).count();
             sidebar = sidebar.child(
@@ -372,16 +363,7 @@ impl SettingsPane {
             )
             .map(ProviderSelectTrigger::new)
             .dropdown_menu(move |mut menu, _, _| {
-                for kind in [
-                    AgentKind::Claude,
-                    AgentKind::Codex,
-                    AgentKind::Gemini,
-                    AgentKind::OpenCode,
-                    AgentKind::Grok,
-                    AgentKind::Pi,
-                    AgentKind::Hermes,
-                    AgentKind::Kimi,
-                ] {
+                for kind in AgentKind::ALL {
                     let owner = compact_owner.clone();
                     menu = menu.item(
                         PopupMenuItem::new(kind.display_name()).checked(agent == kind).on_click(

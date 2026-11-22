@@ -586,13 +586,42 @@ impl SettingsPane {
             return;
         }
         let id = crate::ai_providers::next_custom_id(&self.provider_store);
-        let kind = match self.provider_ui.agent {
-            AgentKind::Claude => ProviderKind::Anthropic,
-            AgentKind::Gemini => ProviderKind::Google,
+        let agent = self.provider_ui.agent;
+        let kind = match agent {
+            AgentKind::Claude | AgentKind::CodeBuddy => ProviderKind::Anthropic,
+            AgentKind::Codex
+            | AgentKind::Aider
+            | AgentKind::Amp
+            | AgentKind::Copilot
+            | AgentKind::Pi
+            | AgentKind::Goose
+            | AgentKind::Hermes
+            | AgentKind::OhMyPi
+            | AgentKind::Cline
+            | AgentKind::Kilo
+            | AgentKind::CommandCode => ProviderKind::OpenAi,
+            AgentKind::Gemini | AgentKind::Antigravity => ProviderKind::Google,
+            AgentKind::Qwen => ProviderKind::Qwen,
+            AgentKind::Kimi => ProviderKind::Kimi,
+            AgentKind::DeepSeekHarness => ProviderKind::DeepSeek,
             _ => ProviderKind::Custom,
         };
         let mut provider = AiProvider::preset(kind, &id);
-        provider.agent = self.provider_ui.agent.slug().to_owned();
+        provider.agent = agent.slug().to_owned();
+        if agent == AgentKind::Grok {
+            provider.name = "Grok (xAI)".into();
+            provider.base_url = "https://api.x.ai/v1".into();
+            provider.model = "grok-4.7".into();
+            provider.wire_api = "Chat Completions".into();
+        } else if matches!(
+            agent,
+            AgentKind::OpenCode | AgentKind::Cursor | AgentKind::Droid | AgentKind::Devin
+                | AgentKind::Auggie | AgentKind::Vibe | AgentKind::Kiro | AgentKind::Qoder
+                | AgentKind::Maki | AgentKind::Trae
+        ) {
+            provider.name = agent.display_name().to_owned();
+            provider.wire_api = "Chat Completions".into();
+        }
         let mut next = self.provider_store.clone();
         next.providers.push(provider);
         match crate::ai_providers::save(&next) {

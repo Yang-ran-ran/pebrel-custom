@@ -424,20 +424,34 @@ impl Render for AnswerReader {
                             language.format(Message::ReaderTitle, &[("provider", provider)]),
                         ))
                         .child(
-                            Button::new("reader-source")
-                                .debug_selector(|| "reader-source".into())
-                                .label(language.text(if self.raw_mode {
-                                    Message::ReaderRead
-                                } else {
-                                    Message::ReaderSource
-                                }))
-                                .ghost()
-                                .small()
-                                .disabled(!has_source)
-                                .on_click(cx.listener(|reader, _, _, cx| {
-                                    reader.raw_mode = !reader.raw_mode;
-                                    cx.notify();
-                                })),
+                            h_flex()
+                                .gap_1()
+                                .child(
+                                    Button::new("reader-mode-markdown")
+                                        .debug_selector(|| "reader-source".into())
+                                        .label("Markdown")
+                                        .ghost()
+                                        .small()
+                                        .toggled(!self.raw_mode)
+                                        .disabled(!has_source)
+                                        .on_click(cx.listener(|reader, _, _, cx| {
+                                            reader.raw_mode = false;
+                                            cx.notify();
+                                        })),
+                                )
+                                .child(
+                                    Button::new("reader-mode-native")
+                                        .debug_selector(|| "reader-mode-native".into())
+                                        .label("Native")
+                                        .ghost()
+                                        .small()
+                                        .toggled(self.raw_mode)
+                                        .disabled(!has_source)
+                                        .on_click(cx.listener(|reader, _, _, cx| {
+                                            reader.raw_mode = true;
+                                            cx.notify();
+                                        })),
+                                ),
                         )
                         .child(
                             Button::new("reader-copy")

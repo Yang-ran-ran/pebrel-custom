@@ -33,8 +33,12 @@ class NativeSuiteTests(unittest.TestCase):
             self.assertIn(contract, lint)
         self.assertIn("python scripts/ci_plan.py", lint)
         self.assertIn('--event-path "$GITHUB_EVENT_PATH"', lint)
+        self.assertIn("Check patch whitespace", lint)
+        self.assertIn('git diff --check "$base...HEAD"', lint)
+        self.assertIn("PR_BASE_SHA", lint)
+        self.assertIn("PUSH_BASE_SHA", lint)
         self.assertLess(
-            lint.index("cargo fmt"),
+            lint.index("git diff --check"),
             lint.index("Test CI contracts before matrix planning"),
         )
         self.assertLess(

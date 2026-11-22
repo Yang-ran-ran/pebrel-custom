@@ -47,6 +47,11 @@ pub(super) fn configuration(agent: AgentHook) -> Option<(PathBuf, bool)> {
             (claude_style::path(agent)?, claude_style::directory(agent)?.is_dir())
         },
         AgentHook::Antigravity => (antigravity::path()?, antigravity::directory()?.is_dir()),
+        AgentHook::DeepSeekHarness => {
+            let path = deepseek_harness::profile_manifest()?;
+            let footprint = path.is_file();
+            (path, footprint)
+        },
         _ => (extended::path(agent)?, extended::directory(agent)?.is_dir()),
     };
     Some((path, footprint))
@@ -129,6 +134,7 @@ fn installed_at(agent: AgentHook, path: &Path, helper: &str) -> io::Result<bool>
             claude_style::installed_at(agent, path)
         },
         AgentHook::Antigravity => antigravity::installed_at(path),
+        AgentHook::DeepSeekHarness => Ok(deepseek_harness::inspect().hook_installed),
         AgentHook::OpenCode | AgentHook::Pi => {
             let bridge = if agent == AgentHook::Pi { Bridge::Pi } else { Bridge::Opencode };
             let (name, legacy, content, hashes) = bridge.files();
@@ -150,6 +156,7 @@ fn current_at(agent: AgentHook, path: &Path, helper: &str) -> io::Result<bool> {
             claude_style::current(agent, path, &raw, helper)
         },
         AgentHook::Antigravity => antigravity::current(&raw, helper),
+        AgentHook::DeepSeekHarness => Ok(deepseek_harness::inspect().hook_current),
         AgentHook::Kimi => Ok(kimi::inspect(&raw, Path::new(helper))?.1),
         AgentHook::Claude => {
             let mut value: Value = serde_json::from_str(&raw).map_err(io::Error::other)?;
@@ -273,6 +280,8 @@ pub(super) fn apply(agent: AgentHook, enabled: bool) -> io::Result<()> {
                 .ok_or_else(|| io::Error::other("Agent configuration unavailable"))?;
             claude_style::apply_at(agent, &path, &helper_command().unwrap_or_default(), enabled)?;
         },
+        (AgentHook::DeepSeekHarness, true) => deepseek_harness::install_hook()?,
+        (AgentHook::DeepSeekHarness, false) => deepseek_harness::remove_hook()?,
         (AgentHook::Antigravity, _) => {
             let path = antigravity::path()
                 .ok_or_else(|| io::Error::other("Antigravity configuration unavailable"))?;
