@@ -41,7 +41,7 @@ jobs:
         id: package_version
         shell: pwsh
         env:
-          PACKAGE_VERSION_INPUT: ${{ steps.package_version.outputs.value }}
+          PACKAGE_VERSION_INPUT: ${{ inputs.package_version }}
         run: |
           $manifest = Get-Content pebrel_app/Cargo.toml -Raw -Encoding UTF8
           $match = [regex]::Match($manifest, '(?m)^version\s*=\s*"(?<version>[0-9]+\.[0-9]+\.[0-9]+)"\s*$')
