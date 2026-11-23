@@ -102,41 +102,8 @@ jobs:
         run: cargo metadata --locked --no-deps --format-version 1
       - name: Test DeepSeek Harness bridge
         run: npm test --prefix integrations/deepseek-harness-bridge
-      - name: Install pinned nightly rustfmt
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2026-11-20
-          components: rustfmt
-      - name: Report pinned formatter versions
-        run: |
-          rustc --version --verbose
-          cargo +nightly-2026-11-20 fmt --version
-      - name: Verify changed Rust files with pinned nightly rustfmt (read-only)
-        shell: bash
-        env:
-          BASE_SHA: ${{ github.event.before }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          set -euo pipefail
-          # Pull-request payloads do not have github.event.before; compare the
-          # complete PR against its base instead of checking only HEAD^.
-          base="$PR_BASE_SHA"
-          if [[ ! "$base" =~ ^[0-9a-f]{40}$ ]]; then
-            base="$BASE_SHA"
-          fi
-          if [[ ! "$base" =~ ^[0-9a-f]{40}$ ]] || [[ "$base" =~ ^0+$ ]]; then
-            base="$(git merge-base origin/main "$GITHUB_SHA")"
-            if [[ "$base" == "$GITHUB_SHA" ]]; then
-              base="$(git rev-parse HEAD^)"
-            fi
-          fi
-          mapfile -t rust_files < <(git diff --diff-filter=ACMRT --name-only "$base" "$GITHUB_SHA" -- '*.rs')
-          if (( ${#rust_files[@]} == 0 )); then
-            echo "No Rust source files changed in this commit; skipping the changed-file format check."
-            exit 0
-          fi
-          printf 'Checking %s changed Rust file(s)\n' "${#rust_files[@]}"
-          rustfmt +nightly-2026-11-20 --check --edition 2024 --config skip_children=true "${rust_files[@]}"
+      - name: Verify Rust formatting with the pinned stable toolchain
+        run: cargo fmt --all -- --check
 
   windows-x64:
     # Only a manual release dispatch may consume a Windows runner. Pull requests

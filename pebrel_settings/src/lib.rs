@@ -1433,10 +1433,13 @@ mod tests {
         assert!(defaults.dim_inactive_panes);
         let mut text = "theme=Nord\nfuture_option=keep\n".to_owned();
         for (focus, dim) in [(true, false), (false, true)] {
-            text = apply_updates(&text, &[
-                ("focus_follows_mouse", (focus as u8).to_string()),
-                ("dim_inactive_panes", (dim as u8).to_string()),
-            ]);
+            text = apply_updates(
+                &text,
+                &[
+                    ("focus_follows_mouse", (focus as u8).to_string()),
+                    ("dim_inactive_panes", (dim as u8).to_string()),
+                ],
+            );
             let settings = RuntimeSettings::from_raw(&RawSettings::from_text(&text));
             assert_eq!(settings.focus_follows_mouse, Some(focus));
             assert_eq!(settings.dim_inactive_panes, dim);
@@ -1471,10 +1474,10 @@ mod tests {
     #[test]
     fn all_app_icons_round_trip_without_changing_other_settings() {
         for variant in AppIconName::ALL {
-            let text =
-                apply_updates("# keep\ntheme=Nord\ncustom=preserved\napp_icon=silver-violet\n", &[
-                    ("app_icon", variant.settings_value().to_owned()),
-                ]);
+            let text = apply_updates(
+                "# keep\ntheme=Nord\ncustom=preserved\napp_icon=silver-violet\n",
+                &[("app_icon", variant.settings_value().to_owned())],
+            );
             let settings = RuntimeSettings::from_raw(&RawSettings::from_text(&text));
             assert_eq!(settings.app_icon, variant);
             assert_eq!(settings.theme, ThemeName::Nord);
@@ -1969,10 +1972,13 @@ mod tests {
     #[test]
     fn keybind_pairs_parse_and_rewrite() {
         let text = "theme=Nebula\nkeybind=ctrl+x:Copy\n# comment\nkeybind=alt+f1:SplitRight\n";
-        assert_eq!(keybind_pairs_from_text(text), vec![
-            ("ctrl+x".to_owned(), "Copy".to_owned()),
-            ("alt+f1".to_owned(), "SplitRight".to_owned()),
-        ]);
+        assert_eq!(
+            keybind_pairs_from_text(text),
+            vec![
+                ("ctrl+x".to_owned(), "Copy".to_owned()),
+                ("alt+f1".to_owned(), "SplitRight".to_owned()),
+            ]
+        );
         let rewritten = apply_keybinds(text, &[("ctrl+y".to_owned(), "Paste".to_owned())]);
         assert_eq!(rewritten, "theme=Nebula\n# comment\nkeybind=ctrl+y:Paste\n");
     }

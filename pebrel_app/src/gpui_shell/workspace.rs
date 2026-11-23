@@ -112,39 +112,42 @@ use tab_drag::{DockTarget, TabDrag, TabDragAxis};
 use agents::{ai_hook_target_pane, ai_hook_target_pane_for_cwd};
 use agents::{ai_session_palette_rows, restored_agent_command};
 
-gpui::actions!(nebula_workspace, [
-    NewTerminal,
-    NewWindow,
-    CloseActiveTerminal,
-    ToggleSidebar,
-    OpenSettings,
-    ToggleCommandPalette,
-    CloseCommandPalette,
-    ToggleShellPicker,
-    CommandPaletteUp,
-    CommandPaletteDown,
-    ToggleFileTree,
-    ToggleGitPanel,
-    SplitRight,
-    SplitDown,
-    RenameActiveTab,
-    ToggleZoom,
-    FocusPaneLeft,
-    FocusPaneRight,
-    FocusPaneUp,
-    FocusPaneDown,
-    SelectNextTab,
-    SelectPreviousTab,
-    MoveTabLeft,
-    MoveTabRight,
-    IncreaseFontSize,
-    DecreaseFontSize,
-    ResetFontSize,
-    CopySelection,
-    PasteClipboard,
-    ToggleFullscreen,
-    OpenQuickJump
-]);
+gpui::actions!(
+    nebula_workspace,
+    [
+        NewTerminal,
+        NewWindow,
+        CloseActiveTerminal,
+        ToggleSidebar,
+        OpenSettings,
+        ToggleCommandPalette,
+        CloseCommandPalette,
+        ToggleShellPicker,
+        CommandPaletteUp,
+        CommandPaletteDown,
+        ToggleFileTree,
+        ToggleGitPanel,
+        SplitRight,
+        SplitDown,
+        RenameActiveTab,
+        ToggleZoom,
+        FocusPaneLeft,
+        FocusPaneRight,
+        FocusPaneUp,
+        FocusPaneDown,
+        SelectNextTab,
+        SelectPreviousTab,
+        MoveTabLeft,
+        MoveTabRight,
+        IncreaseFontSize,
+        DecreaseFontSize,
+        ResetFontSize,
+        CopySelection,
+        PasteClipboard,
+        ToggleFullscreen,
+        OpenQuickJump
+    ]
+);
 
 /// 命令面板 / Shell 选择器罩层的 keymap context。Esc 必须挂在这里，
 /// 不能挂全局：否则 CC/Codex 的终止对话键到不了 PTY。
@@ -1182,11 +1185,11 @@ impl NebulaWorkspace {
         };
         let position = pebrel_settings::RuntimeSettings::load().new_tab_position;
         let at = new_tab_insert_index(position, self.active, self.tabs.len());
-        self.insert_tab_at(at, tab, TabMeta {
-            shell_tag,
-            launch: Some(launch_session),
-            ..TabMeta::default()
-        });
+        self.insert_tab_at(
+            at,
+            tab,
+            TabMeta { shell_tag, launch: Some(launch_session), ..TabMeta::default() },
+        );
         self.active = at;
         self.reveal_active_tab();
         self.focus_active(window, cx);

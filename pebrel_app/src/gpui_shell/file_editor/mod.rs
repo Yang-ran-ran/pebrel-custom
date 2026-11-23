@@ -70,15 +70,18 @@ use document::SaveError;
 use outline::Outline;
 use source::{DocumentSource, LoadedDocument};
 
-actions!(file_editor, [
-    SaveFile,
-    ToggleSource,
-    FinishBlockEdit,
-    ApplyObjectEdit,
-    CancelObjectEdit,
-    BoldSelection,
-    ItalicSelection
-]);
+actions!(
+    file_editor,
+    [
+        SaveFile,
+        ToggleSource,
+        FinishBlockEdit,
+        ApplyObjectEdit,
+        CancelObjectEdit,
+        BoldSelection,
+        ItalicSelection
+    ]
+);
 
 pub(super) fn init(cx: &mut App) {
     cx.bind_keys([

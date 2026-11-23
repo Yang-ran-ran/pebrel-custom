@@ -409,10 +409,10 @@ impl SettingsPane {
                     window,
                     cx,
                     super::toast::ToastKind::Warning,
-                    language.format(crate::i18n::Message::SettingsStartupSaveFailed, &[(
-                        "error",
-                        &error.to_string(),
-                    )]),
+                    language.format(
+                        crate::i18n::Message::SettingsStartupSaveFailed,
+                        &[("error", &error.to_string())],
+                    ),
                 );
             }
             cx.notify();
@@ -1099,13 +1099,11 @@ impl SettingsPane {
                         )
                         .child(Slider::new(state)),
                 )
-                .child(
-                    div()
+                .child(div()
                         .w(px(48.0))
                         .flex_shrink_0()
                         // 固定数值列宽，百分比位数变化时轨道不会左右跳动。
-                        .child(display),
-                ),
+                        .child(display)),
             cx,
         )
     }
@@ -1665,9 +1663,8 @@ impl SettingsPane {
                 continue;
             }
             let active = ix == self.active_section;
-            items =
-                items.child(
-                    div()
+            items = items.child(
+                div()
                         .id(("settings-nav", ix))
                         .debug_selector(move || format!("settings-nav-{ix}"))
                         .px(px(10.0))
@@ -1706,7 +1703,7 @@ impl SettingsPane {
                                 .text_color(if active { active_icon } else { muted }),
                         )
                         .child(section_label(ix, language)),
-                );
+            );
         }
         nav.child(div().flex_1().min_h_0().overflow_y_scrollbar().child(items))
             .child(

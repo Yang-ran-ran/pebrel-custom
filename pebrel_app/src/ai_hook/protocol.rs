@@ -127,12 +127,10 @@ fn parse_envelope_with_transport(bytes: &[u8], local_transport: bool) -> Option<
         context_string(&payload, &["turn_id", "turn-id"]).map(|id| truncate(&id, ID_MAX_CHARS));
     // 旧字段名保留：用户机器上可能还装着上一版 bridge，它写的是
     // `provider_sequence`。字段来源始终是 bridge，不是 provider 原生顺序。
-    let bridge_sequence = context_u64(&payload, &[
-        "bridge_sequence",
-        "bridgeSequence",
-        "provider_sequence",
-        "providerSequence",
-    ]);
+    let bridge_sequence = context_u64(
+        &payload,
+        &["bridge_sequence", "bridgeSequence", "provider_sequence", "providerSequence"],
+    );
     let occurred_at_ms =
         context_u64(&payload, &["occurred_at_ms", "occurredAtMs", "occurred_at", "timestamp"]);
     let background_tasks = if source == "antigravity" {
@@ -303,24 +301,24 @@ fn parse_envelope_with_transport(bytes: &[u8], local_transport: bool) -> Option<
         occurred_at_ms,
         received_at_ms,
         cwd: context_string(&payload, &["cwd", "directory"]),
-        project: context_string(&payload, &[
-            "project",
-            "project_path",
-            "projectPath",
-            "workspace_root",
-            "workspaceRoot",
-        ])
+        project: context_string(
+            &payload,
+            &["project", "project_path", "projectPath", "workspace_root", "workspaceRoot"],
+        )
         .or_else(|| first_string_in_array(&payload, "workspace_roots")),
         git_branch: context_string(&payload, &["git_branch", "gitBranch", "branch"]),
-        permission_or_tool: context_string(&payload, &[
-            "permission_or_tool",
-            "permissionOrTool",
-            "permission_type",
-            "permissionType",
-            "tool_name",
-            "toolName",
-            "tool",
-        ])
+        permission_or_tool: context_string(
+            &payload,
+            &[
+                "permission_or_tool",
+                "permissionOrTool",
+                "permission_type",
+                "permissionType",
+                "tool_name",
+                "toolName",
+                "tool",
+            ],
+        )
         .or_else(|| {
             payload
                 .get("hook_event_name")

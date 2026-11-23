@@ -827,10 +827,10 @@ mod tests {
     fn deepseek_preset_offers_current_flash_and_pro_models() {
         let provider = AiProvider::preset(ProviderKind::DeepSeek, "deepseek");
         assert_eq!(provider.model, "deepseek-flash");
-        assert_eq!(provider.models, vec![
-            "deepseek-flash".to_owned(),
-            "deepseek-v4-pro".to_owned()
-        ]);
+        assert_eq!(
+            provider.models,
+            vec!["deepseek-flash".to_owned(), "deepseek-v4-pro".to_owned()]
+        );
     }
 
     use super::*;
@@ -850,10 +850,10 @@ mod tests {
         };
         normalize(&mut store);
         assert_eq!(store.providers[0].model, "deepseek-flash");
-        assert_eq!(store.providers[0].models, vec![
-            "deepseek-flash".to_owned(),
-            "deepseek-v4-pro".to_owned()
-        ]);
+        assert_eq!(
+            store.providers[0].models,
+            vec!["deepseek-flash".to_owned(), "deepseek-v4-pro".to_owned()]
+        );
         assert_eq!(store.providers[1].model, "my-deepseek-proxy-model");
         assert_eq!(store.providers[1].models, vec!["my-deepseek-proxy-model".to_owned()]);
     }
@@ -872,13 +872,16 @@ mod tests {
     #[test]
     fn metadata_draft_uses_one_shared_sanitizer() {
         let mut provider = AiProvider::preset(ProviderKind::Custom, "custom-test");
-        apply_metadata_draft(&mut provider, ProviderMetadataDraft {
-            name: " My Provider \n".into(),
-            note: " keep spaces \n but no controls ".into(),
-            website_url: " https://example.com/a b ".into(),
-            base_url: " https://api.example.com /v1 ".into(),
-            model: " model name ".into(),
-        });
+        apply_metadata_draft(
+            &mut provider,
+            ProviderMetadataDraft {
+                name: " My Provider \n".into(),
+                note: " keep spaces \n but no controls ".into(),
+                website_url: " https://example.com/a b ".into(),
+                base_url: " https://api.example.com /v1 ".into(),
+                model: " model name ".into(),
+            },
+        );
         assert_eq!(provider.name, "MyProvider");
         assert_eq!(provider.note, "keep spaces  but no controls");
         assert_eq!(provider.website_url, "https://example.com/ab");

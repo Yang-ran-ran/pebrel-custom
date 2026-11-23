@@ -486,10 +486,10 @@ impl NebulaWorkspace {
                 window,
                 cx,
                 crate::display::ToastKind::Info,
-                language.format(Message::WorkspacePaneBroadcastEnabled, &[(
-                    "count",
-                    &count.to_string(),
-                )]),
+                language.format(
+                    Message::WorkspacePaneBroadcastEnabled,
+                    &[("count", &count.to_string())],
+                ),
             );
         }
         cx.notify();

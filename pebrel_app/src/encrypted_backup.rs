@@ -222,10 +222,10 @@ fn decrypt_bytes(packet: &[u8], passphrase: &str) -> Result<zeroize::Zeroizing<V
     let nonce = &packet[MAGIC.len() + SALT_LEN..header_len];
     let key = zeroize::Zeroizing::new(derive_key(passphrase, salt)?);
     let plaintext = Aes256Gcm::new((&*key).into())
-        .decrypt(&Nonce::try_from(nonce).map_err(|_| "invalid backup nonce".to_owned())?, Payload {
-            msg: &packet[header_len..],
-            aad: MAGIC,
-        })
+        .decrypt(
+            &Nonce::try_from(nonce).map_err(|_| "invalid backup nonce".to_owned())?,
+            Payload { msg: &packet[header_len..], aad: MAGIC },
+        )
         .map_err(|_| "backup authentication failed".to_owned())?;
     Ok(zeroize::Zeroizing::new(plaintext))
 }
@@ -601,11 +601,10 @@ mod tests {
         fs::write(directory.path().join("fonts/regular.ttf"), b"font").unwrap();
         fs::write(directory.path().join("fonts/regular.pebrel-migrate-10-20-30.tmp"), b"partial")
             .unwrap();
-        let archive = collect_from(directory.path(), BackupSelection {
-            appearance: false,
-            fonts: true,
-            ..BackupSelection::default()
-        })
+        let archive = collect_from(
+            directory.path(),
+            BackupSelection { appearance: false, fonts: true, ..BackupSelection::default() },
+        )
         .unwrap();
         assert_eq!(archive.entries.len(), 1);
         assert_eq!(archive.entries[0].name, "fonts/regular.ttf");

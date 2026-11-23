@@ -5723,10 +5723,10 @@ impl Display {
             });
             if let Some(command) = session.fork_command() {
                 rows.push(command_palette::AiSessionRow {
-                    label: language.format(crate::i18n::Message::WorkspaceForkLabel, &[(
-                        "title",
-                        &session.title,
-                    )]),
+                    label: language.format(
+                        crate::i18n::Message::WorkspaceForkLabel,
+                        &[("title", &session.title)],
+                    ),
                     hint,
                     search: format!("分叉 fork {search}"),
                     command,
@@ -10463,14 +10463,14 @@ mod nebula_ux_tests {
         let bottom =
             SizeInfo::new_fully_asymmetric(1000.0, 700.0, 10.0, 20.0, 100.0, 20.0, 384.0, 20.0);
 
-        assert_eq!(alt_screen_vertical_padding_bands(&window, &top, 56.0, 636.0), [
-            Some((56.0, 24.0)),
-            Some((360.0, 16.0))
-        ]);
-        assert_eq!(alt_screen_vertical_padding_bands(&window, &bottom, 56.0, 636.0), [
-            None,
-            Some((664.0, 28.0))
-        ]);
+        assert_eq!(
+            alt_screen_vertical_padding_bands(&window, &top, 56.0, 636.0),
+            [Some((56.0, 24.0)), Some((360.0, 16.0))]
+        );
+        assert_eq!(
+            alt_screen_vertical_padding_bands(&window, &bottom, 56.0, 636.0),
+            [None, Some((664.0, 28.0))]
+        );
     }
 
     #[test]

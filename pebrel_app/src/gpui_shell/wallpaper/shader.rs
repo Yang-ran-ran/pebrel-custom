@@ -175,15 +175,18 @@ impl Shader {
             };
             let activation = cx.observe_window_activation(window, |this, _, cx| this.reconcile(cx));
             let bounds = cx.observe_window_bounds(window, |this, _, cx| this.reconcile(cx));
-            self.placements.insert(id, Placement {
-                native: handle.hwnd.get(),
-                owner: window.create_stream_image(self.gpu.clone(), cx),
-                cancellation: BackgroundShaderCancellation::default(),
-                preparing: false,
-                ready: false,
-                blocked: false,
-                _subscriptions: vec![activation, bounds],
-            });
+            self.placements.insert(
+                id,
+                Placement {
+                    native: handle.hwnd.get(),
+                    owner: window.create_stream_image(self.gpu.clone(), cx),
+                    cancellation: BackgroundShaderCancellation::default(),
+                    preparing: false,
+                    ready: false,
+                    blocked: false,
+                    _subscriptions: vec![activation, bounds],
+                },
+            );
         }
         self.compile_if_needed(cx);
         self.prepare_window(id, cx);

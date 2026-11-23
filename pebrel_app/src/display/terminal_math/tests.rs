@@ -211,10 +211,10 @@ fn completed_formula_replaces_overlapping_streaming_candidate() {
 
 #[test]
 fn recognizes_cli_math_delimiters_and_utf8_prose() {
-    assert_eq!(sources(&[r"中文 \(x^2+y^2=z^2\) and $\alpha+1$"]), vec![
-        ("x^2+y^2=z^2".into(), false),
-        (r"\alpha+1".into(), false)
-    ]);
+    assert_eq!(
+        sources(&[r"中文 \(x^2+y^2=z^2\) and $\alpha+1$"]),
+        vec![("x^2+y^2=z^2".into(), false), (r"\alpha+1".into(), false)]
+    );
 }
 
 #[test]
@@ -251,12 +251,10 @@ fn explicit_inline_formulas_keep_their_delimiter_specific_wrap_boundaries() {
 /// Agent TUI 的硬换行：块级形态（`\[ \]`、裸 `[`、`$$`）保留原有恢复规则。
 #[test]
 fn screenshot_display_formulas_survive_agent_hard_wraps() {
-    for rows in [vec![r"\[\displaystyle \frac{d}{dx}\sin", r"x=\cos x\]"], vec![
-        "$$",
-        r"\lim_{x\to0}\frac{\sin",
-        r"x}{x}=1",
-        "$$",
-    ]] {
+    for rows in [
+        vec![r"\[\displaystyle \frac{d}{dx}\sin", r"x=\cos x\]"],
+        vec!["$$", r"\lim_{x\to0}\frac{\sin", r"x}{x}=1", "$$"],
+    ] {
         let overlays = scan_grid(&TextGrid::from_rows(&rows));
         assert!(!overlays.is_empty(), "expected wrapped formula in {rows:?}");
         for overlay in overlays {
@@ -276,10 +274,10 @@ fn screenshot_display_formulas_survive_agent_hard_wraps() {
 
 #[test]
 fn display_math_can_cross_hard_terminal_rows() {
-    assert_eq!(sources(&["answer:", "$$", r"\frac{1}{2} + x^2", "$$", "done"]), vec![(
-        r"\frac{1}{2} + x^2".into(),
-        true
-    )]);
+    assert_eq!(
+        sources(&["answer:", "$$", r"\frac{1}{2} + x^2", "$$", "done"]),
+        vec![(r"\frac{1}{2} + x^2".into(), true)]
+    );
     assert_eq!(sources(&[r"\[\sum_{i=1}^n i\]"]), vec![(r"\sum_{i=1}^n i".into(), true)]);
 
     let multiline = sources(&[
@@ -769,18 +767,18 @@ fn markdown_unescaped_bare_brackets_render_as_display_math() {
     // 部分 AI CLI 的 markdown 渲染会吃掉 `\[` `\]` `\,` 的反斜杠
     // （它们是 markdown 标点转义），`\int`/`\frac` 不是转义所以幸存，
     // 屏幕上只剩裸 `[` 块——2026-08-17 截图的真实形态。
-    assert_eq!(sources(&["[", r"\int_0^1 x^2,dx = \frac{1}{3}", "]"]), vec![(
-        r"\int_0^1 x^2,dx = \frac{1}{3}".into(),
-        true
-    )]);
-    assert_eq!(sources(&["[", r"\sum_{i=1}^{n} i = \frac{n(n+1)}{2}", "]"]), vec![(
-        r"\sum_{i=1}^{n} i = \frac{n(n+1)}{2}".into(),
-        true
-    )]);
-    assert_eq!(sources(&[r"[ \lim_{x\to 0}\frac{\sin x}{x}=1 ]"]), vec![(
-        r"\lim_{x\to 0}\frac{\sin x}{x}=1".into(),
-        true
-    )]);
+    assert_eq!(
+        sources(&["[", r"\int_0^1 x^2,dx = \frac{1}{3}", "]"]),
+        vec![(r"\int_0^1 x^2,dx = \frac{1}{3}".into(), true)]
+    );
+    assert_eq!(
+        sources(&["[", r"\sum_{i=1}^{n} i = \frac{n(n+1)}{2}", "]"]),
+        vec![(r"\sum_{i=1}^{n} i = \frac{n(n+1)}{2}".into(), true)]
+    );
+    assert_eq!(
+        sources(&[r"[ \lim_{x\to 0}\frac{\sin x}{x}=1 ]"]),
+        vec![(r"\lim_{x\to 0}\frac{\sin x}{x}=1".into(), true)]
+    );
     // Codex CLI under WSL renders `\[ E = mc^2 \]` as three plain rows
     // because its Markdown layer consumes the bracket escapes.
     assert_eq!(sources(&["[", "E = mc^2", "]"]), vec![("E = mc^2".into(), true)]);
@@ -809,10 +807,10 @@ fn bare_brackets_without_tex_evidence_stay_literal() {
 
 #[test]
 fn markdown_unescaped_bare_parens_render_inline() {
-    assert_eq!(sources(&[r"也可以使用 (\sqrt{x^2+y^2}) 表示行内公式"]), vec![(
-        r"\sqrt{x^2+y^2}".into(),
-        false
-    )]);
+    assert_eq!(
+        sources(&[r"也可以使用 (\sqrt{x^2+y^2}) 表示行内公式"]),
+        vec![(r"\sqrt{x^2+y^2}".into(), false)]
+    );
     assert_eq!(sources(&["• 质能方程为 (E=mc^2)。"]), vec![("E=mc^2".into(), false)]);
     let sequence = r"a_n=a_1+(n-1)d";
     assert_eq!(sources(&[&format!("• ({sequence})，done")]), vec![(sequence.into(), false)]);
@@ -837,10 +835,10 @@ fn implicit_product_equations_use_the_standard_delimiter_rule() {
     let expected = vec![("F=ma".into(), false), ("PV=nRT".into(), false)];
     assert_eq!(sources(&[r"\(F=ma\), \(PV=nRT\)"]), expected);
     assert_eq!(sources(&["$F=ma$, $PV=nRT$"]), expected);
-    assert_eq!(sources(&[r"(\displaystyle F=ma), (\displaystyle PV=nRT)"]), vec![
-        (r"\displaystyle F=ma".into(), false),
-        (r"\displaystyle PV=nRT".into(), false),
-    ]);
+    assert_eq!(
+        sources(&[r"(\displaystyle F=ma), (\displaystyle PV=nRT)"]),
+        vec![(r"\displaystyle F=ma".into(), false), (r"\displaystyle PV=nRT".into(), false),]
+    );
 
     assert_eq!(sources(&[r"\(key=value\)"]), Vec::new());
     assert_eq!(sources(&["$key=value$"]), Vec::new());
@@ -865,10 +863,10 @@ fn bare_parens_reject_regex_prose_and_single_letter_escapes() {
 fn explicit_delimiters_still_require_content_evidence() {
     assert!(sources(&[r"escaped \$x$"]).is_empty());
     // 成对美元定界符明确表示数字公式；真实金额使用单个美元符号，仍保持原文。
-    assert_eq!(sources(&["values $5$ and $12.50$"]), vec![
-        ("5".into(), false),
-        ("12.50".into(), false)
-    ]);
+    assert_eq!(
+        sources(&["values $5$ and $12.50$"]),
+        vec![("5".into(), false), ("12.50".into(), false)]
+    );
     assert!(sources(&["price $5 and $12.50"]).is_empty());
     assert!(sources(&["env $LONG_VARIABLE$"]).is_empty());
     assert!(sources(&["quote $USD 20$ today"]).is_empty());
@@ -1014,10 +1012,10 @@ fn issue420_inline_atoms_and_polynomials_do_not_consume_neighboring_formulas() {
             (r"\pm".into(), false),
         ]
     );
-    assert_eq!(sources(&[r"for $USD$ use $x$ and $\ln(1+x)$"]), vec![
-        ("x".into(), false),
-        (r"\ln(1+x)".into(), false)
-    ]);
+    assert_eq!(
+        sources(&[r"for $USD$ use $x$ and $\ln(1+x)$"]),
+        vec![("x".into(), false), (r"\ln(1+x)".into(), false)]
+    );
 }
 
 #[test]
@@ -1033,19 +1031,19 @@ fn issue420_inline_tex_recovers_bounded_agent_line_breaks() {
     assert_eq!(sources(&[r"formula $ \frac{1}{2} $ ends"]), vec![(r"\frac{1}{2}".into(), false)]);
     assert!(sources(&["price $5", "another amount $7"]).is_empty());
     assert_eq!(sources(&[r"unclosed $\frac{1}{2}", "", "next $x$"]), vec![("x".into(), false)]);
-    assert_eq!(sources(&[r"unclosed $\frac{1}{2}", "ordinary text", "next $x$"]), vec![(
-        "x".into(),
-        false
-    )]);
+    assert_eq!(
+        sources(&[r"unclosed $\frac{1}{2}", "ordinary text", "next $x$"]),
+        vec![("x".into(), false)]
+    );
 }
 
 #[test]
 fn single_dollar_uses_the_standard_formula_rule_without_agent_context() {
     assert_eq!(sources(&["plain $x$ text"]), vec![("x".into(), false)]);
-    assert_eq!(sources(&["质能方程 $E = mc^2$，其中 c 为光速。"]), vec![(
-        "E = mc^2".into(),
-        false
-    )]);
+    assert_eq!(
+        sources(&["质能方程 $E = mc^2$，其中 c 为光速。"]),
+        vec![("E = mc^2".into(), false)]
+    );
     assert_eq!(
         sources(&[
             r"二次方程：$x = \dfrac{-b \pm \sqrt{b^2 - 4ac}}{2a}$",

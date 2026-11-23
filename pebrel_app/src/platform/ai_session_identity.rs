@@ -687,15 +687,18 @@ mod tests {
             });
         }
         let mut daemon = OwnedChild(daemon.spawn().unwrap());
-        proc_fixture::wait_for_child(&mut daemon.0, &proc_fixture::Expected {
-            pane,
-            instance: &instance,
-            home: &home,
-            codex_home: None,
-            cwd: &fixture_cwd,
-            rollout: &other_rollout,
-            first_line: &other_meta,
-        })
+        proc_fixture::wait_for_child(
+            &mut daemon.0,
+            &proc_fixture::Expected {
+                pane,
+                instance: &instance,
+                home: &home,
+                codex_home: None,
+                cwd: &fixture_cwd,
+                rollout: &other_rollout,
+                first_line: &other_meta,
+            },
+        )
         .unwrap();
 
         for (case, (codex_home, expected)) in [

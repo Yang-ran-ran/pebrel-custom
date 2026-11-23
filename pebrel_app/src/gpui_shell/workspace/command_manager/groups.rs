@@ -287,10 +287,10 @@ impl NebulaWorkspace {
                     )
                     .child(
                         div().text_size(px(11.0)).text_color(muted).child(
-                            language.format(Message::CommandsGroupCount, &[(
-                                "count",
-                                &count.to_string(),
-                            )]),
+                            language.format(
+                                Message::CommandsGroupCount,
+                                &[("count", &count.to_string())],
+                            ),
                         ),
                     ),
             )

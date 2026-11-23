@@ -18,12 +18,15 @@ fn configure(behavior: &str) {
     let raw = std::fs::read_to_string(&path).unwrap();
     std::fs::write(
         path,
-        pebrel_settings::apply_updates(&raw, &[
-            ("windowing_behavior", behavior.into()),
-            ("restore_session", "0".into()),
-            ("tray", "0".into()),
-            ("fetch", "0".into()),
-        ]),
+        pebrel_settings::apply_updates(
+            &raw,
+            &[
+                ("windowing_behavior", behavior.into()),
+                ("restore_session", "0".into()),
+                ("tray", "0".into()),
+                ("fetch", "0".into()),
+            ],
+        ),
     )
     .unwrap();
 }
@@ -332,11 +335,10 @@ fn cli_directory_is_interpreted_by_the_residents_default_or_imported_program(
                     assert_eq!(profile_id.as_deref(), Some(profile.id.as_str()));
                     if windows && profile.name == "wsl.exe" {
                         assert_eq!(cwd.as_deref(), raw_directory.to_str());
-                        assert_eq!(args, &[
-                            "--cd",
-                            &format!("\"{}\"", raw_directory.display()),
-                            "literal value"
-                        ]);
+                        assert_eq!(
+                            args,
+                            &["--cd", &format!("\"{}\"", raw_directory.display()), "literal value"]
+                        );
                     } else {
                         assert_eq!(
                             PathBuf::from(cwd.as_ref().unwrap()).canonicalize().unwrap(),

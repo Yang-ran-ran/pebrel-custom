@@ -172,10 +172,23 @@ def plan_matrices(
         if not isinstance(draft, bool):
             raise PlanError("pull_request.draft must be a boolean")
         paths, platforms = _pr_changes(pull_request) if changed_paths is None else (changed_paths, set())
-        return _matrices(select_pr_platforms(paths) | platforms)
+        native, release = _matrices(select_pr_platforms(paths) | platforms)
+        # Automatic PR validation never allocates hosted Windows runners.
+        # Windows x64/ARM regression and release packaging are explicit manual
+        # operations; Linux and macOS retain their normal source coverage.
+        return (
+            [row for row in native if not row["os"].startswith("windows-")],
+            [row for row in release if not row["os"].startswith("windows-")],
+        )
 
     if event_name in FULL_EVENTS:
-        return _matrices()
+        native, release = _matrices()
+        if event_name not in {"workflow_dispatch", "workflow_call"}:
+            # Pushes, schedules and merge queues must not allocate Windows
+            # runners. Full Windows validation is intentionally opt-in.
+            native = [row for row in native if not row["os"].startswith("windows-")]
+            release = [row for row in release if not row["os"].startswith("windows-")]
+        return native, release
 
     supported = sorted(FULL_EVENTS | {"pull_request"})
     raise PlanError(f"unsupported event name {event_name!r}; expected one of {', '.join(supported)}")

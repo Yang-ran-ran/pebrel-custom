@@ -480,15 +480,15 @@ impl NebulaWorkspace {
             } else if search_pending {
                 language.text(Message::FilesSearchRunning).to_owned()
             } else if self.side_panel.file_index_truncated() {
-                language.format(Message::FilesSearchLimited, &[(
-                    "count",
-                    &self.side_panel.file_rows().len().to_string(),
-                )])
+                language.format(
+                    Message::FilesSearchLimited,
+                    &[("count", &self.side_panel.file_rows().len().to_string())],
+                )
             } else {
-                language.format(Message::FilesSearchCount, &[(
-                    "count",
-                    &self.side_panel.file_search_total().to_string(),
-                )])
+                language.format(
+                    Message::FilesSearchCount,
+                    &[("count", &self.side_panel.file_search_total().to_string())],
+                )
             })
         } else {
             None
@@ -964,10 +964,10 @@ impl NebulaWorkspace {
             .unwrap_or_else(|| path.display().to_string());
         let language = crate::gpui_shell::config::ui_language(cx);
         let title: SharedString = language
-            .format(Message::FilesDeleteTitle, &[(
-                "name",
-                &crate::display::truncate_tab_label(&name, 28),
-            )])
+            .format(
+                Message::FilesDeleteTitle,
+                &[("name", &crate::display::truncate_tab_label(&name, 28))],
+            )
             .into();
         let body: SharedString = if is_dir {
             language.text(Message::FilesDeleteFolderBody).into()
