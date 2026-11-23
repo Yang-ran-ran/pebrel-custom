@@ -16,7 +16,7 @@ impl Render for NebulaWorkspace {
         // 终端卡几何取一次，布局与壳色带共用同一个实例——两处各取一次也算
         // 「各写一份」，主题在这一帧中途换掉就会出现半旧半新的卡缝。
         let card_style = crate::gpui_shell::theme::PaneCardStyle::current(cx);
-        let titlebar_background = self.titlebar_background.clone();
+        let window_backdrop = self.window_backdrop.clone();
         let draw_file_divider = self.side_panel.open;
         let sidebar_logo_target_px =
             (TAB_LABEL_ICON_SIZE * window.scale_factor()).round().max(1.0) as u32;
@@ -67,8 +67,21 @@ impl Render for NebulaWorkspace {
         } else {
             crate::gpui_shell::theme::card_content_bg(cx)
         };
+        let wallpaper_peek = settings_active
+            && self
+                .settings_surface
+                .as_ref()
+                .is_some_and(|(pane, _)| pane.read(cx).wallpaper_peeking());
         let top_tabs = self.tabs_position == pebrel_settings::TabsPositionName::Top;
         let reader_focus = self.reader_focus_active(cx);
+        let sidebar_collapsed =
+            self.settings_restore_sidebar_collapsed.unwrap_or(self.sidebar_collapsed);
+        let wallpaper_sidebar =
+            (!top_tabs && !reader_focus && !sidebar_collapsed).then_some(self.sidebar_width);
+        let workspace_strip = self
+            .window_backdrop
+            .wallpaper
+            .update(cx, |strip, cx| strip.configure(wallpaper_sidebar, window, cx));
         // dock 预览：被拖 tab 悬于终端区时高亮目标半区（松手即挂到那侧）。
         let dock_preview = self
             .tab_drag
@@ -83,6 +96,7 @@ impl Render for NebulaWorkspace {
             .size_full()
             .flex()
             .flex_col()
+            .relative()
             // 旧壳每个像素只画一次：整窗先透明清屏，再分别画标题栏、侧栏、
             // 卡外壳与卡底。根节点不能再铺一张半透明底。
             .bg(gpui::transparent_black())
@@ -93,35 +107,28 @@ impl Render for NebulaWorkspace {
                 move |value, _, _| {
                     value
                         .downcast_ref::<windowing::CrossWindowTabDrag>()
-                        .is_some_and(|payload| {
-                            payload.source_window_id() != runtime_window_id
-                        })
+                        .is_some_and(|payload| payload.source_window_id() != runtime_window_id)
                 }
             })
             .on_drag_move::<windowing::CrossWindowTabDrag>(cx.listener(
-                |this,
-                 event: &gpui::DragMoveEvent<windowing::CrossWindowTabDrag>,
-                 _window,
-                 cx| {
+                |this, event: &gpui::DragMoveEvent<windowing::CrossWindowTabDrag>, _window, cx| {
                     let payload = event.drag(cx);
                     if payload.source_window_id() == this.runtime_window_id {
                         this.cross_window_dock = None;
                         return;
                     }
                     let position = event.event.position;
-                    this.cross_window_dock = this
-                        .dock_nav_at(f32::from(position.x), f32::from(position.y));
+                    this.cross_window_dock =
+                        this.dock_nav_at(f32::from(position.x), f32::from(position.y));
                     cx.notify();
                 },
             ))
-            .on_drop(cx.listener(
-                |this, payload: &windowing::CrossWindowTabDrag, window, cx| {
-                    let dock = this.cross_window_dock.take();
-                    if this.accept_cross_window_tab(payload, dock, window, cx) {
-                        cx.stop_propagation();
-                    }
-                },
-            ))
+            .on_drop(cx.listener(|this, payload: &windowing::CrossWindowTabDrag, window, cx| {
+                let dock = this.cross_window_dock.take();
+                if this.accept_cross_window_tab(payload, dock, window, cx) {
+                    cx.stop_propagation();
+                }
+            }))
             .on_mouse_move(cx.listener(|this, event, window, cx| {
                 this.update_details_panel_resize(event, window, cx);
                 this.update_left_sidebar_resize(event, window, cx);
@@ -256,19 +263,14 @@ impl Render for NebulaWorkspace {
             .on_action(cx.listener(|this, _: &OpenQuickJump, window, cx| {
                 this.open_quick_jump_palette(window, cx);
             }))
-            .child(
-                // 用户显式配置的背景图画在 chrome 之下；系统 Mica/Aero/Acrylic
-                // 位于整个 GPUI 内容层下方，由 DWM 合成，不能在这里读取壁纸仿画。
-                // 拓展模式只在此绘图，壳/卡衬底在其上保留原有文字对比度。
-                crate::gpui_shell::wallpaper::window_layer(cx),
-            )
-            .child(
-                self.render_window_title_bar(
-                    settings_active,
-                    window,
-                    cx,
-                ),
-            )
+            .child(if wallpaper_peek {
+                crate::gpui_shell::wallpaper::peek_layer(workspace_strip.clone(), cx)
+                    .into_any_element()
+            } else {
+                crate::gpui_shell::wallpaper::window_layer(workspace_strip.clone(), cx)
+                    .into_any_element()
+            })
+            .child(self.render_window_title_bar(settings_active, window, cx))
             .child(
                 // 不用 h_flex：它默认 items_center，会把子项高度压成内容高度。
                 div()
@@ -279,7 +281,9 @@ impl Render for NebulaWorkspace {
                     .when(!top_tabs && !settings_active && !reader_focus, |row| {
                         row.child(self.render_sidebar_slot(window, cx))
                     })
-                    .child(
+                    .child(if settings_active {
+                        div().flex_1().min_w_0().children(content)
+                    } else {
                         // 终端卡（一体化外壳）：唯一的结构分界。圆角、卡缝、投影、
                         // 竖线四项全部来自 `PaneCardStyle`（主题默认叠用户覆盖），
                         // 所以「浮起的圆角卡」和「铺满到窗口边 + 一条竖线」是同一
@@ -295,7 +299,7 @@ impl Render for NebulaWorkspace {
                             .relative()
                             .child(
                                 gpui::canvas(
-                                    move |bounds, _, _| titlebar_background.record_pane(bounds),
+                                    move |bounds, _, _| window_backdrop.record_pane(bounds),
                                     |bounds, _, window, cx| {
                                         // 卡缝、圆角、竖线全部读同一份 style 真源：
                                         // 布局的 padding 与这里的壳色带必须逐边对上，
@@ -320,43 +324,61 @@ impl Render for NebulaWorkspace {
                             .pb(px(card_style.margin.bottom))
                             .pl(px(card_style.margin.left))
                             .child(
-                            div()
-                                .size_full()
-                                .rounded(px(card_style.radius))
-                                .bg(content_background)
-                                .when(card_style.shadow, |card| {
-                                    // 投影落在有圆角的这一层，才会跟着卡的形状走。
-                                    // 父容器没有 overflow_hidden，所以 blur 可以溢出
-                                    // 到卡缝之外——那正是「卡浮在壳上」的观感来源。
-                                    card.shadow(vec![crate::gpui_shell::theme::card_shadow(cx)])
-                                })
-                                .overflow_hidden()
-                                .child(
-                                    // 壁纸层（卡底色之上、内容之下，覆盖整卡含
-                                    // 内边距带）：卡模式按卡定位；拓展模式由
-                                    // 窗口底层统一绘图，此处不覆盖原有衬底。
-                                    crate::gpui_shell::wallpaper::card_layer(cx),
-                                )
-                                .children(content),
-                        )
+                                div()
+                                    .size_full()
+                                    .rounded(px(card_style.radius))
+                                    .bg(content_background)
+                                    .when(card_style.shadow, |card| {
+                                        // 投影落在有圆角的这一层，才会跟着卡的形状走。
+                                        // 父容器没有 overflow_hidden，所以 blur 可以溢出
+                                        // 到卡缝之外——那正是「卡浮在壳上」的观感来源。
+                                        card.shadow(vec![crate::gpui_shell::theme::card_shadow(cx)])
+                                    })
+                                    .overflow_hidden()
+                                    .child(
+                                        // 壁纸层（卡底色之上、内容之下，覆盖整卡含
+                                        // 内边距带）：卡模式按卡定位；拓展模式由
+                                        // 窗口底层统一绘图，此处不覆盖原有衬底。
+                                        crate::gpui_shell::wallpaper::card_layer(
+                                            workspace_strip,
+                                            cx,
+                                        ),
+                                    )
+                                    .children(content),
+                            )
                             .child(
                                 // Both sidebar boundaries share the same snapped line and color.
                                 gpui::canvas(
                                     |_, _, _| (),
                                     move |bounds, _, window, cx| {
                                         window_titlebar::paint_pane_dividers(
-                                            bounds, draw_file_divider, window, cx,
+                                            bounds,
+                                            draw_file_divider,
+                                            window,
+                                            cx,
                                         );
                                     },
                                 )
                                 .absolute()
                                 .inset_0(),
-                            ),
-                    )
-                    .when(!reader_focus, |row| {
+                            )
+                    })
+                    .when(!settings_active && !reader_focus, |row| {
                         row.child(self.render_side_panel_slot(window, cx))
                     }),
             )
+            .when(settings_active && cx.theme().is_dark(), |root| {
+                root.child(
+                    div()
+                        .debug_selector(|| "settings-sidebar-divider".to_owned())
+                        .absolute()
+                        .top_0()
+                        .bottom_0()
+                        .left(px(crate::gpui_shell::settings_pane::SETTINGS_NAV_WIDTH - 1.0))
+                        .w(px(1.0))
+                        .bg(gpui::white().opacity(if wallpaper_peek { 0.012 } else { 0.075 })),
+                )
+            })
             .when_some(dock_preview, |root, (x, y, w, h)| {
                 root.child(
                     div()
@@ -420,58 +442,53 @@ impl Render for NebulaWorkspace {
                 // 兜底。详见 render_pointer_drag_capture 的注释。
                 root.child(self.render_pointer_drag_capture(cx))
             })
-            .when_some(
-                self.split_drag.as_ref().map(|drag| drag.direction),
-                |root, direction| {
-                    // 分隔条拖拽罩层（同 tab_drag 的指针捕获模式）：整窗
-                    // 保持 resize 光标，移动喂预览、松开提交/关闭。
-                    root.child(
-                        div()
-                            .absolute()
-                            .inset_0()
-                            .occlude()
-                            .map(|mask| match direction {
-                                SplitDirection::LeftRight => mask.cursor_col_resize(),
-                                SplitDirection::TopBottom => mask.cursor_row_resize(),
-                            })
-                            .on_mouse_move(cx.listener(|this, event, window, cx| {
-                                this.update_split_drag(event, window, cx);
-                            }))
-                            .on_mouse_up(
-                                MouseButton::Left,
-                                cx.listener(|this, event: &gpui::MouseUpEvent, window, cx| {
-                                    this.finish_split_drag(event.position, window, cx);
-                                }),
-                            ),
-                    )
-                },
-            )
+            .when_some(self.split_drag.as_ref().map(|drag| drag.direction), |root, direction| {
+                // 分隔条拖拽罩层（同 tab_drag 的指针捕获模式）：整窗
+                // 保持 resize 光标，移动喂预览、松开提交/关闭。
+                root.child(
+                    div()
+                        .absolute()
+                        .inset_0()
+                        .occlude()
+                        .map(|mask| match direction {
+                            SplitDirection::LeftRight => mask.cursor_col_resize(),
+                            SplitDirection::TopBottom => mask.cursor_row_resize(),
+                        })
+                        .on_mouse_move(cx.listener(|this, event, window, cx| {
+                            this.update_split_drag(event, window, cx);
+                        }))
+                        .on_mouse_up(
+                            MouseButton::Left,
+                            cx.listener(|this, event: &gpui::MouseUpEvent, window, cx| {
+                                this.finish_split_drag(event.position, window, cx);
+                            }),
+                        ),
+                )
+            })
             .when(self.command_palette_open, |root| {
                 root.child(self.render_command_palette(window, cx))
             })
             .when(self.command_manager_open, |root| {
                 root.child(self.render_command_manager(window, cx))
             })
-            .when_some(self.render_file_tree_context_menu(), |root, menu| {
-                root.child(menu)
-            })
+            .when_some(self.render_file_tree_context_menu(), |root, menu| root.child(menu))
             .when_some(self.render_tab_context_menu(), |root, menu| root.child(menu))
             .when_some(self.render_launcher_context_menu(), |root, menu| root.child(menu))
-            .when_some(self.render_selection_context_menu(), |root, menu| {
-                root.child(menu)
-            })
+            .when_some(self.render_selection_context_menu(), |root, menu| root.child(menu))
             // 组件库的模态/通知层不会自己上屏：`Root::render` 只画宿主视图，
             // dialog/notification 两层由宿主显式挂。确认框需要晚于设置页中
             // priority 4–6 的主题浮层绘制；通知再覆盖确认框。
             //
             // 少了这两行，`window.open_dialog` 只会把模态推进 `Root` 并抢走
             // 焦点而不画任何东西——终端看着就像卡死了。
-            .children(Root::render_dialog_layer(window, cx).map(|layer| {
-                gpui::deferred(layer).with_priority(10)
-            }))
-            .children(crate::gpui_shell::toast::render_layer(window, cx).map(|layer| {
-                gpui::deferred(layer).with_priority(11)
-            }))
+            .children(
+                Root::render_dialog_layer(window, cx)
+                    .map(|layer| gpui::deferred(layer).with_priority(10)),
+            )
+            .children(
+                crate::gpui_shell::toast::render_layer(window, cx)
+                    .map(|layer| gpui::deferred(layer).with_priority(11)),
+            )
             .children(theme_transition)
     }
 }

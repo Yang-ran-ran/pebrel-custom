@@ -942,8 +942,8 @@ pub struct Display {
     nebula_tab_flashing: Vec<bool>,
     /// Per-tab real AI brand logo, textured over the icon slot.
     nebula_tab_logos: Vec<Option<AiLogo>>,
-    /// Decoded (and, where appropriate, theme-tinted) logo pixels with stable renderer texture ids,
-    /// keyed by (logo, ink, target physical size). Decode, tint and high-quality
+    /// Decoded (and, where appropriate, theme-tinted) logo pixels with stable renderer texture
+    /// ids, keyed by (logo, ink, target physical size). Decode, tint and high-quality
     /// downsampling run once per key.
     nebula_ai_logo_cache: std::collections::HashMap<
         (AiLogo, [u8; 3], u32),
@@ -2914,7 +2914,7 @@ impl Display {
             resume_ai: self.nebula_resume_ai,
             tray: self.nebula_tray,
             opacity: self.nebula_window_opacity,
-            dragging_opacity: self.nebula_settings_opacity_drag.map(|(target, _, _)| target),
+            dragging_opacity: self.nebula_settings_opacity_drag.map(|(target, ..)| target),
             cursor_shape: self.nebula_cursor_shape,
             cursor_blink: self.nebula_cursor_blink,
             copy_on_select: self.nebula_copy_on_select,
@@ -5647,7 +5647,7 @@ impl Display {
         self.nebula_window_opacity = 1.0;
         self.nebula_background = None;
         self.nebula_background_image = None;
-        self.nebula_background_image_opacity = 0.38;
+        self.nebula_background_image_opacity = nebula_settings::DEFAULT_BACKGROUND_IMAGE_OPACITY;
         self.nebula_background_image_fit = BackgroundImageFit::default();
         self.nebula_background_image_alignment = BackgroundImageAlignment::default();
         self.nebula_background_image_cover_chrome = false;
@@ -6696,9 +6696,9 @@ impl Display {
 
     /// Auto-save an SSH destination the user typed and successfully connected
     /// to — armed at OSC 133;C, confirmed by a remote `NEBULA|` title or a
-    /// session that outlived [`crate::ssh::SAVE_MIN_SESSION`]. Recents: most recent first, deduped, capped. An already-listed host
-    /// only refreshes its recency (for the next launch) — the visible list
-    /// never jumps while the user is looking at it.
+    /// session that outlived [`crate::ssh::SAVE_MIN_SESSION`]. Recents: most recent first, deduped,
+    /// capped. An already-listed host only refreshes its recency (for the next launch) — the
+    /// visible list never jumps while the user is looking at it.
     pub fn nebula_save_ssh_host(&mut self, host: &str) {
         const SAVED_HOSTS_CAP: usize = 20;
         if host.is_empty() {
@@ -7625,15 +7625,7 @@ impl Display {
         );
         let math_coverage =
             terminal_math::CoverageMask::build(&terminal_math_overlays, &prepared_math);
-        // A normal shell line may reflow its suffix around a compact formula.
-        // Full-screen TUIs own fixed grid geometry (sidebars, cards, status
-        // bands), so moving every cell after an inline formula would also move
-        // those ANSI backgrounds and tear the interface into coloured blocks.
-        pane_state.terminal_math.update_projection(
-            &terminal_math_overlays,
-            &prepared_math,
-            !alt_screen,
-        );
+        pane_state.terminal_math.update_projection(&terminal_math_overlays, &prepared_math, true);
         let frame_images = inline_image::capture(
             &terminal,
             &mut pane_state.inline_images,

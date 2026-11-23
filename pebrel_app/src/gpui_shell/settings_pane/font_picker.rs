@@ -284,29 +284,61 @@ impl SettingsPane {
                     .focus_bordered(false)
                     .w_full()
                     .cleanable(false)
-                    .suffix(Button::new(chevron_id)
-                            .debug_selector(move || chevron_id.to_owned()).ghost().xsmall()
-                        .icon(if self.font_picker_open && self.font_picker_cjk == cjk { IconName::ChevronUp } else { IconName::ChevronDown })
-                        .tooltip(language.text(if self.font_picker_open && self.font_picker_cjk == cjk { crate::i18n::Message::SettingsFontCollapse } else { crate::i18n::Message::SettingsFontExpand }))
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| { cx.stop_propagation(); })
-                        .on_click(cx.listener(move |this, _, window, cx| {
-                            let was_open = this.font_picker_open && this.font_picker_cjk == cjk;
-                            if this.font_picker_open && !was_open { this.close_font_picker(window, false, cx); }
-                            this.font_picker_cjk = cjk;
-                            this.picker_input().update(cx, |input, cx| input.focus(window, cx));
-                            if was_open { this.close_font_picker(window, false, cx); } else { this.open_font_picker(cx); }
-                            cx.stop_propagation();
-                            cx.notify();
-                        })))
-                    .aria_label(language.text(if cjk { crate::i18n::Message::SettingsFontChinese } else { crate::i18n::Message::SettingsFontEnglish })),
+                    .suffix(
+                        Button::new(chevron_id)
+                            .debug_selector(move || chevron_id.to_owned())
+                            .ghost()
+                            .xsmall()
+                            .icon(if self.font_picker_open && self.font_picker_cjk == cjk {
+                                IconName::ChevronUp
+                            } else {
+                                IconName::ChevronDown
+                            })
+                            .tooltip(language.text(
+                                if self.font_picker_open && self.font_picker_cjk == cjk {
+                                    crate::i18n::Message::SettingsFontCollapse
+                                } else {
+                                    crate::i18n::Message::SettingsFontExpand
+                                },
+                            ))
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| {
+                                cx.stop_propagation();
+                            })
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                let was_open = this.font_picker_open && this.font_picker_cjk == cjk;
+                                if this.font_picker_open && !was_open {
+                                    this.close_font_picker(window, false, cx);
+                                }
+                                this.font_picker_cjk = cjk;
+                                this.picker_input().update(cx, |input, cx| input.focus(window, cx));
+                                if was_open {
+                                    this.close_font_picker(window, false, cx);
+                                } else {
+                                    this.open_font_picker(cx);
+                                }
+                                cx.stop_propagation();
+                                cx.notify();
+                            })),
+                    )
+                    .aria_label(language.text(if cjk {
+                        crate::i18n::Message::SettingsFontChinese
+                    } else {
+                        crate::i18n::Message::SettingsFontEnglish
+                    })),
             )
             // 弹层仍须取输入框的真实窗口坐标，才能正确处理滚动、缩放与 DPI。
             .child(
                 gpui::canvas(
                     move |bounds, _, cx| {
                         let _ = picker.update(cx, |picker, cx| {
-                            let slot = if cjk { &mut picker.font_picker_cjk_bounds } else { &mut picker.font_picker_trigger_bounds };
-                            if *slot == Some(bounds) { return; }
+                            let slot = if cjk {
+                                &mut picker.font_picker_cjk_bounds
+                            } else {
+                                &mut picker.font_picker_trigger_bounds
+                            };
+                            if *slot == Some(bounds) {
+                                return;
+                            }
                             *slot = Some(bounds);
                             // anchored() 消费的是上一轮 render 拿到的窗口坐标；
                             // 聚焦自动滚动后补一帧，弹层才会继续贴住输入框。
@@ -362,6 +394,7 @@ impl SettingsPane {
         let muted = cx.theme().muted_foreground;
         let hover_bg = cx.theme().list_hover;
         let selected_bg = cx.theme().list_active;
+        let glass = crate::gpui_shell::theme::selection_glass(cx);
         let warning = cx.theme().warning;
         let border = cx.theme().border;
         let families = self.configured_font_families(cx);
@@ -411,6 +444,7 @@ impl SettingsPane {
                     .items_center()
                     .rounded_md()
                     .bg(selected_bg)
+                    .when_some(glass, |row, glass| glass.apply(row))
                     .child(
                         div()
                             .w(px(16.0))
@@ -571,58 +605,54 @@ impl SettingsPane {
                     .child(language.tr("settings.font.group_description")),
             )
             .when(self.font_loading, |panel| {
-                panel.child(
-                    h_flex()
-                        .gap_2()
-                        .items_center()
-                        .child(Spinner::new().xsmall())
-                        .child(
-                            div()
-                                .text_sm()
-                                .text_color(muted)
-                                .child(language.tr("settings.font.loading")),
-                        ),
-                )
+                panel.child(h_flex().gap_2().items_center().child(Spinner::new().xsmall()).child(
+                    div().text_sm().text_color(muted).child(language.tr("settings.font.loading")),
+                ))
             })
             .when(!self.font_loading, |panel| {
-                panel.child(v_flex().debug_selector(|| "font-picker-list".to_owned()).h(list_height).min_h_0().overflow_y_scrollbar().child(
+                panel.child(
                     v_flex()
-                        .w_full()
-                        // gpui-component 的纵向滚动条以 16px 绝对定位覆盖在
-                        // 内容右侧，不会自动挤出布局空间。这里预留同宽安全区，
-                        // 避免排序操作与候选行落进滚动条命中区而发生误触。
-                        .pr(px(16.0))
-                        .gap_1()
+                        .debug_selector(|| "font-picker-list".to_owned())
+                        .h(list_height)
+                        .min_h_0()
+                        .overflow_y_scrollbar()
                         .child(
-                            div()
-                                .px_1()
-                                .text_xs()
-                                .text_color(muted)
-                                .child(language.text(crate::i18n::Message::SettingsFontCurrentOrder)),
-                        )
-                        .children(selected_rows)
-                        .child(
-                            div()
-                                .mt_2()
-                                .pt_2()
-                                .border_t_1()
-                                .border_color(border.opacity(0.5))
-                                .px_1()
-                                .text_xs()
-                                .text_color(muted)
-                                .child(language.text(crate::i18n::Message::SettingsFontAvailableFonts)),
-                        )
-                        .children(available_rows)
-                        .when(available_empty, |list| {
-                            list.child(
-                                div()
-                                    .py_2()
-                                    .text_sm()
-                                    .text_color(muted)
-                                    .child(language.tr("settings.font.no_matches")),
-                            )
-                        }),
-                ))
+                            v_flex()
+                                .w_full()
+                                // gpui-component 的纵向滚动条以 16px 绝对定位覆盖在
+                                // 内容右侧，不会自动挤出布局空间。这里预留同宽安全区，
+                                // 避免排序操作与候选行落进滚动条命中区而发生误触。
+                                .pr(px(16.0))
+                                .gap_1()
+                                .child(div().px_1().text_xs().text_color(muted).child(
+                                    language.text(crate::i18n::Message::SettingsFontCurrentOrder),
+                                ))
+                                .children(selected_rows)
+                                .child(
+                                    div()
+                                        .mt_2()
+                                        .pt_2()
+                                        .border_t_1()
+                                        .border_color(border.opacity(0.5))
+                                        .px_1()
+                                        .text_xs()
+                                        .text_color(muted)
+                                        .child(language.text(
+                                            crate::i18n::Message::SettingsFontAvailableFonts,
+                                        )),
+                                )
+                                .children(available_rows)
+                                .when(available_empty, |list| {
+                                    list.child(
+                                        div()
+                                            .py_2()
+                                            .text_sm()
+                                            .text_color(muted)
+                                            .child(language.tr("settings.font.no_matches")),
+                                    )
+                                }),
+                        ),
+                )
             })
     }
 

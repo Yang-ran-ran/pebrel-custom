@@ -11,11 +11,7 @@
     "saved": "预测设置已保存。",
     "predicting": "{model} 正在预测",
     "launcher_fallback": "提示词预测暂不可用，将正常启动 {agent}。{error}",
-    "launcher_failed": "无法启动 {agent}：{error}",
-    "shared_memory_title": "跨文档共享的 AI 习惯",
-    "shared_memory_description": "写下你希望 AI 长期遵循的表达、格式和工作习惯。这里的内容会在不同文档间共享；不会自动收集或发送其他文档的正文。",
-    "shared_memory_unsaved": "有未保存的修改",
-    "shared_memory_saved": "跨文档 AI 习惯已保存。"
+    "launcher_failed": "无法启动 {agent}：{error}"
   },
   "native_result": {
     "json_items": "{count} 项",

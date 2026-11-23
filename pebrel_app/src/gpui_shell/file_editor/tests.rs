@@ -284,7 +284,7 @@ pub(super) fn open(
     open_with_mode(path, false, cx)
 }
 
-/// Existing reader/live-editor regressions opt in explicitly; product default is source mode.
+/// Existing live-editor regressions opt in explicitly; the product opens in reader mode.
 pub(super) fn open_live(
     path: PathBuf,
     cx: &mut TestAppContext,
@@ -306,10 +306,6 @@ fn open_with_mode(
     let (_, window) = cx.add_window_view(|window, cx| {
         let view = cx.new(|cx| {
             let mut view = TextFileView::new(path, window, cx);
-            // Most legacy regression fixtures exercise the reading/live editor;
-            // opt into that view explicitly now that product default is source.
-            view.preview = true;
-            view.show_details = true;
             if live_mode {
                 view.live_mode = true;
             }
@@ -320,36 +316,6 @@ fn open_with_mode(
     });
     window.run_until_parked();
     (file.unwrap(), window.clone())
-}
-
-#[gpui::test]
-fn markdown_document_opens_in_source_mode_and_exposes_compact_mode_switch(cx: &mut TestAppContext) {
-    let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("default-source.md");
-    std::fs::write(&path, "# Source by default\n\nBody").unwrap();
-    cx.update(|cx| {
-        gpui_component::init(cx);
-        super::super::math_view::register(cx);
-        init(cx);
-    });
-    let mut file = None;
-    let (_, mut window) = cx.add_window_view(|window, cx| {
-        let view = cx.new(|cx| TextFileView::new(path, window, cx));
-        file = Some(view.clone());
-        Root::new(view, window, cx)
-    });
-    window.run_until_parked();
-    let file = file.unwrap();
-    file.read_with(&window, |view, _| {
-        assert!(view.markdown);
-        assert!(!view.preview);
-    });
-    window.update(|window, cx| {
-        let _ = window.draw(cx);
-    });
-    assert!(window.debug_bounds("file-view-modes").is_some());
-    assert!(window.debug_bounds("file-source-content").is_some());
-    assert!(window.debug_bounds("markdown-preview-viewport").is_none());
 }
 
 #[gpui::test]

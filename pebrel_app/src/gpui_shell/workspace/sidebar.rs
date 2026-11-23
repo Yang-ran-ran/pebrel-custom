@@ -31,14 +31,11 @@ pub(super) fn sidebar_new_tab_control(
 /// 事件 vs 状态：一个 tab 此刻该显示哪个静息徽章。
 ///
 /// - `Done` 是**事件**——「回合完成了，你不在场」。你正看着这个 tab 时它没有
-///   信息量了，还画一个点等于让用户去点掉自己刚亲眼看完的事，所以当前 tab
-///   一律降回 `Idle`。
-/// - 后台响铃补位到 `Done` 同理，只对非当前 tab 成立。`has_bell` 本身激活即清
-///   （见 `TabMeta::has_bell`），这里再挡一次是因为清除发生在激活事件里，同一帧
-///   内读到的可能还是旧值。
+///   信息量了，还画一个点等于让用户去点掉自己刚亲眼看完的事，所以当前 tab 一律降回 `Idle`。
+/// - 后台响铃补位到 `Done` 同理，只对非当前 tab 成立。`has_bell` 本身激活即清 （见
+///   `TabMeta::has_bell`），这里再挡一次是因为清除发生在激活事件里，同一帧 内读到的可能还是旧值。
 /// - 其余都是**状态**（转圈、等输入、等授权、失败），描述「此刻仍然如此」，你看
-///   不看它都还成立，所以当前 tab 也照画。响铃补位的 `Idle` 前提保证了它不会
-///   盖掉这些。
+///   不看它都还成立，所以当前 tab 也照画。响铃补位的 `Idle` 前提保证了它不会 盖掉这些。
 pub(super) fn resting_activity(
     activity: SidebarActivity,
     active: bool,
@@ -179,6 +176,7 @@ impl NebulaWorkspace {
         let faint = crate::gpui_shell::theme::faint_ink(cx);
         let active_bg = theme.sidebar_accent;
         let active_fg = theme.sidebar_accent_foreground;
+        let glass = crate::gpui_shell::theme::selection_glass(cx);
         let hover_bg = theme.list_hover;
         let dark = theme.is_dark();
         // 标题走 UI sans，路径/状态短标才用 Normal 等宽；有图标时才占图标槽。
@@ -253,7 +251,10 @@ impl NebulaWorkspace {
                     SidebarActivity::Running => {
                         let (track, head) =
                             crate::gpui_shell::theme::sidebar_spinner_colors(cx, active);
-                        Some(Self::spinner(self.spinner_phase, track, head, cx.weak_entity()).into_any_element())
+                        Some(
+                            Self::spinner(self.spinner_phase, track, head, cx.weak_entity())
+                                .into_any_element(),
+                        )
                     },
                     SidebarActivity::Paused => Some(
                         Icon::new(IconName::Pause)
@@ -284,18 +285,16 @@ impl NebulaWorkspace {
                     ),
                     // 停在 [y/n]/口令/Press ENTER 上：也要你动手，但这是常态，
                     // 用 Attention 的警示形状去喊会把真正要紧的那个喊废。
-                    SidebarActivity::WaitingInput => Some(
-                        Self::waiting_hand(label_px, theme.primary)
-                            .into_any_element(),
-                    ),
+                    SidebarActivity::WaitingInput => {
+                        Some(Self::waiting_hand(label_px, theme.primary).into_any_element())
+                    },
                     // 停在授权/提问上：同样是「有人在等你」，所以跟
                     // `WaitingInput` 用同一个手掌——形状表达语义。差别走颜色轴：
                     // 它会把整个回合卡住，值得 warning。⚠ 三角留给失败，拿它表
                     // 示「问你一句」会跟所有终端/编辑器的既有读法冲突。
-                    SidebarActivity::Attention => Some(
-                        Self::waiting_hand(label_px, theme.warning)
-                            .into_any_element(),
-                    ),
+                    SidebarActivity::Attention => {
+                        Some(Self::waiting_hand(label_px, theme.warning).into_any_element())
+                    },
                     SidebarActivity::Failed => Some(
                         Icon::new(IconName::CircleX)
                             .xsmall()
@@ -316,170 +315,132 @@ impl NebulaWorkspace {
                 // 源与落点之间的行向反方向让一个槽位，其余不动。存储顺序在
                 // 拖拽期间不变，释放时一次性提交。
                 let (dragged, shift) = match drag {
-                    Some((src, _, _)) if ix == src => (true, 0.0),
+                    Some((src, ..)) if ix == src => (true, 0.0),
                     Some((src, tgt, _)) if src < tgt && ix > src && ix <= tgt => {
                         (false, -row_pitch)
                     },
-                    Some((src, tgt, _)) if src > tgt && ix >= tgt && ix < src => {
-                        (false, row_pitch)
-                    },
+                    Some((src, tgt, _)) if src > tgt && ix >= tgt && ix < src => (false, row_pitch),
                     _ => (false, 0.0),
                 };
                 let row = h_flex()
-                .id(("sidebar-tab", ix))
-                .debug_selector(move || format!("sidebar-tab-{ix}"))
-                .when_some(tooltip, |row, text| row.tooltip(move |window, cx| {
-                    tab_presentation::tooltip(text.clone(), window, cx)
-                }))
-                .group(hover_group.clone())
-                .relative()
-                // 旧壳 `layout.tabs[i]` 的命中矩形覆盖整条可见行。
-                //
-                // 这里必须是**显式像素宽**，不能用 `w_full`：行在
-                // `tab_scroll::wrap_tabs_scroll_list` 的 overflow_hidden 容器
-                // 里，百分比宽度到不了这一层，会回落成 shrink-to-fit——表现
-                // 就是行宽跟着文件名长短变，带图标的行还整体右移一个图标宽
-                // （用户 08-19 报的侧栏 tab 宽度乱跳）。双击重命名"看起来正常"
-                // 只是因为 Input 恰好把容器撑满，不是宽度真的对了。
-                .w(px(row_w))
-                // 内容再宽也不许把行撑开：截断后的标题若比测量值宽一两像素，
-                // 撑开的行会重新引入上面那个症状。
-                .overflow_hidden()
-                .gap_2()
-                .px_2()
-                .h(px(row_height))
-                .items_center()
-                // 旧壳 pill 圆角 = UI_CORNER_RADIUS_LOGICAL(8)，rounded_md(6)
-                // 偏小一圈，选中水洗的轮廓形状会不一样。
-                .rounded(px(crate::display::UI_CORNER_RADIUS_LOGICAL))
-                // GPUI 默认文本样式可能把侧栏整行带到中等/粗体；旧壳
-                // tab chrome 使用终端 Regular face，所有子文本从这里继承常规字重。
-                .font_weight(FontWeight::NORMAL)
-                .cursor_pointer()
-                .when(active, |item| item.bg(active_bg).text_color(active_fg))
-                .when(!active && !dragged, |item| {
-                    item.text_color(muted).hover(|style| style.bg(hover_bg))
-                })
-                .when(!active && dragged, |item| item.text_color(muted).bg(hover_bg))
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    this.activate_tab(ix, window, cx);
-                }))
-                // 受约束拖拽：按下待命（源下标 + 按点 Y），移动阈值与让位
-                // 由 update_tab_drag 驱动；激活后的指针独占见 render 根部
-                // 的透明罩层。
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                        this.tab_drag = Some(TabDrag {
-                            source: ix,
-                            cross_window: this.cross_window_drag_payload(ix, cx),
-                            cross_window_target: None,
-                            press_x: f32::from(event.position.x),
-                            press_y: f32::from(event.position.y),
-                            axis: TabDragAxis::Vertical,
-                            pitch: row_pitch,
-                            offset: 0.0,
-                            active: false,
-                            force_tear_out: false,
-                            dock: None,
-                        });
-                    }),
-                )
-                .on_mouse_down(
-                    MouseButton::Middle,
-                    cx.listener(move |this, _, window, cx| {
+                    .id(("sidebar-tab", ix))
+                    .debug_selector(move || format!("sidebar-tab-{ix}"))
+                    .when_some(tooltip, |row, text| {
+                        row.tooltip(move |window, cx| {
+                            tab_presentation::tooltip(text.clone(), window, cx)
+                        })
+                    })
+                    .group(hover_group.clone())
+                    .relative()
+                    // 旧壳 `layout.tabs[i]` 的命中矩形覆盖整条可见行。
+                    //
+                    // 这里必须是**显式像素宽**，不能用 `w_full`：行在
+                    // `tab_scroll::wrap_tabs_scroll_list` 的 overflow_hidden 容器
+                    // 里，百分比宽度到不了这一层，会回落成 shrink-to-fit——表现
+                    // 就是行宽跟着文件名长短变，带图标的行还整体右移一个图标宽
+                    // （用户 08-19 报的侧栏 tab 宽度乱跳）。双击重命名"看起来正常"
+                    // 只是因为 Input 恰好把容器撑满，不是宽度真的对了。
+                    .w(px(row_w))
+                    // 内容再宽也不许把行撑开：截断后的标题若比测量值宽一两像素，
+                    // 撑开的行会重新引入上面那个症状。
+                    .overflow_hidden()
+                    .gap_2()
+                    .px_2()
+                    .h(px(row_height))
+                    .items_center()
+                    // 旧壳 pill 圆角 = UI_CORNER_RADIUS_LOGICAL(8)，rounded_md(6)
+                    // 偏小一圈，选中水洗的轮廓形状会不一样。
+                    .rounded(px(crate::display::UI_CORNER_RADIUS_LOGICAL))
+                    // GPUI 默认文本样式可能把侧栏整行带到中等/粗体；旧壳
+                    // tab chrome 使用终端 Regular face，所有子文本从这里继承常规字重。
+                    .font_weight(FontWeight::NORMAL)
+                    .cursor_pointer()
+                    .when(active, |item| {
+                        let item = item.text_color(active_fg);
+                        if let Some(glass) = glass { glass.apply(item) } else { item.bg(active_bg) }
+                    })
+                    .when(!active && !dragged, |item| {
+                        item.text_color(muted).hover(|style| style.bg(hover_bg))
+                    })
+                    .when(!active && dragged, |item| item.text_color(muted).bg(hover_bg))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.activate_tab(ix, window, cx);
+                    }))
+                    // 受约束拖拽：按下待命（源下标 + 按点 Y），移动阈值与让位
+                    // 由 update_tab_drag 驱动；激活后的指针独占见 render 根部
+                    // 的透明罩层。
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                            this.tab_drag = Some(TabDrag {
+                                source: ix,
+                                cross_window: this.cross_window_drag_payload(ix, cx),
+                                cross_window_target: None,
+                                press_x: f32::from(event.position.x),
+                                press_y: f32::from(event.position.y),
+                                axis: TabDragAxis::Vertical,
+                                pitch: row_pitch,
+                                offset: 0.0,
+                                active: false,
+                                force_tear_out: false,
+                                dock: None,
+                            });
+                        }),
+                    )
+                    .on_mouse_down(
+                        MouseButton::Middle,
+                        cx.listener(move |this, _, window, cx| {
+                            cx.stop_propagation();
+                            this.request_close_tab(ix, window, cx);
+                        }),
+                    )
+                    .on_double_click(cx.listener(move |this, _, window, cx| {
+                        // 旧壳 `ChromeHit::Tab` + DoubleClick → BeginRename。
                         cx.stop_propagation();
-                        this.request_close_tab(ix, window, cx);
-                    }),
-                )
-                .on_double_click(cx.listener(move |this, _, window, cx| {
-                    // 旧壳 `ChromeHit::Tab` + DoubleClick → BeginRename。
-                    cx.stop_propagation();
-                    this.begin_rename(ix, window, cx);
-                }))
-                .when_some(strip, |row, color| {
-                    row.child(
-                        div()
-                            .absolute()
-                            .left_0()
-                            .top(px(7.0))
-                            .w(px(2.5))
-                            .h(px(row_height - 14.0))
-                            .rounded_full()
-                            .bg(color),
-                    )
-                })
-                // 权限属于整个会话，先于程序身份呈现，且不被 AI 图标替换。
-                .when(local_administrator, |row| {
-                    row.child(tab_presentation::administrator_badge(
-                        format!("sidebar-admin-{ix}").into(),
-                        cx,
-                    ))
-                })
-                // 行首图标的优先级：**先身份、后形态**。AI 品牌图 / 程序字位
-                // 表达「这个 tab 里在跑什么」，它必须跟随聚焦 pane；2×2
-                // 分屏标记只在没有身份可显示时补位。
-                // 反过来（分屏就一律画 grid）会让 claude 分屏之后标签上再也
-                // 看不出跑着 claude——用户 08-23 报的「侧边 tab 不跟随激活
-                // tab 变化」就是这个。数量由尾部胶囊表达，不必和图标抢槽位。
-                .when(is_settings, |row| {
-                    row.child(
-                        div().w(px(TAB_LABEL_ICON_W)).flex_shrink_0().flex().justify_center().child(
-                            Icon::new(IconName::Settings)
-                                .small()
-                                .text_color(if active { active_fg } else { muted }),
-                        ),
-                    )
-                })
-                .when_some(logo_image.clone(), |row, image| {
-                    row.child(
-                        div().w(px(TAB_LABEL_ICON_W)).flex_shrink_0().flex().items_center().justify_center().child(
-                            // 共用原图和 GPU 灰度处理；hover 只切绘制层，不重解码或改变占位。
+                        this.begin_rename(ix, window, cx);
+                    }))
+                    .when_some(strip, |row, color| {
+                        row.child(
                             div()
-                                .relative()
-                                .size(px(TAB_LABEL_ICON_SIZE))
+                                .absolute()
+                                .left_0()
+                                .top(px(7.0))
+                                .w(px(2.5))
+                                .h(px(row_height - 14.0))
+                                .rounded_full()
+                                .bg(color),
+                        )
+                    })
+                    // 权限属于整个会话，先于程序身份呈现，且不被 AI 图标替换。
+                    .when(local_administrator, |row| {
+                        row.child(tab_presentation::administrator_badge(
+                            format!("sidebar-admin-{ix}").into(),
+                            cx,
+                        ))
+                    })
+                    // 行首图标的优先级：**先身份、后形态**。AI 品牌图 / 程序字位
+                    // 表达「这个 tab 里在跑什么」，它必须跟随聚焦 pane；2×2
+                    // 分屏标记只在没有身份可显示时补位。
+                    // 反过来（分屏就一律画 grid）会让 claude 分屏之后标签上再也
+                    // 看不出跑着 claude——用户 08-23 报的「侧边 tab 不跟随激活
+                    // tab 变化」就是这个。数量由尾部胶囊表达，不必和图标抢槽位。
+                    .when(is_settings, |row| {
+                        row.child(
+                            div()
+                                .w(px(TAB_LABEL_ICON_W))
+                                .flex_shrink_0()
+                                .flex()
+                                .justify_center()
                                 .child(
-                                    img(image.clone())
-                                        .id(("sidebar-logo-idle", ix))
-                                        .size_full()
-                                        .object_fit(ObjectFit::Contain)
-                                        .when(!active, |icon| {
-                                            icon.grayscale(true).opacity(0.85)
-                                                .group_hover(hover_group.clone(), |style| style.invisible())
-                                        }),
-                                )
-                                .when(!active, |slot| {
-                                    slot.child(
-                                        img(image)
-                                            .id(("sidebar-logo-hover", ix))
-                                            .absolute()
-                                            .inset_0()
-                                            .size_full()
-                                            .object_fit(ObjectFit::Contain)
-                                            .invisible()
-                                            .group_hover(hover_group.clone(), |style| style.visible()),
-                                    )
-                                }),
-                        ),
-                    )
-                })
-                .when_some(program_glyph, |row, glyph| {
-                    row.child(
-                        div()
-                            .id(("sidebar-program-icon", ix))
-                            .w(px(if logo_pending { TAB_LABEL_ICON_SIZE } else { TAB_LABEL_ICON_W }))
-                            .flex_shrink_0()
-                            .font_family(symbol_family.clone())
-                            .text_size(px(label_px))
-                            .font_weight(FontWeight::NORMAL)
-                            .text_color(if active { active_fg } else { muted })
-                            .group_hover(hover_group.clone(), |style| style.text_color(active_fg))
-                            .child(crate::gpui_shell::widgets::terminal_glyph(glyph, TAB_LABEL_ICON_SIZE)),
-                    )
-                })
-                .when(
-                    pane_count > 1 && !is_settings && logo_image.is_none() && !has_program_glyph,
-                    |row| {
+                                    Icon::new(IconName::Settings).small().text_color(if active {
+                                        active_fg
+                                    } else {
+                                        muted
+                                    }),
+                                ),
+                        )
+                    })
+                    .when_some(logo_image.clone(), |row, image| {
                         row.child(
                             div()
                                 .w(px(TAB_LABEL_ICON_W))
@@ -487,97 +448,169 @@ impl NebulaWorkspace {
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .child(pane_header::split_glyph(
-                                    label_px * 0.78,
+                                .child(
+                                    // 共用原图和 GPU 灰度处理；hover
+                                    // 只切绘制层，不重解码或改变占位。
+                                    div()
+                                        .relative()
+                                        .size(px(TAB_LABEL_ICON_SIZE))
+                                        .child(
+                                            img(image.clone())
+                                                .id(("sidebar-logo-idle", ix))
+                                                .size_full()
+                                                .object_fit(ObjectFit::Contain)
+                                                .when(!active, |icon| {
+                                                    icon.grayscale(true)
+                                                        .opacity(0.85)
+                                                        .group_hover(hover_group.clone(), |style| {
+                                                            style.invisible()
+                                                        })
+                                                }),
+                                        )
+                                        .when(!active, |slot| {
+                                            slot.child(
+                                                img(image)
+                                                    .id(("sidebar-logo-hover", ix))
+                                                    .absolute()
+                                                    .inset_0()
+                                                    .size_full()
+                                                    .object_fit(ObjectFit::Contain)
+                                                    .invisible()
+                                                    .group_hover(hover_group.clone(), |style| {
+                                                        style.visible()
+                                                    }),
+                                            )
+                                        }),
+                                ),
+                        )
+                    })
+                    .when_some(program_glyph, |row, glyph| {
+                        row.child(
+                            div()
+                                .id(("sidebar-program-icon", ix))
+                                .w(px(if logo_pending {
+                                    TAB_LABEL_ICON_SIZE
+                                } else {
+                                    TAB_LABEL_ICON_W
+                                }))
+                                .flex_shrink_0()
+                                .font_family(symbol_family.clone())
+                                .text_size(px(label_px))
+                                .font_weight(FontWeight::NORMAL)
+                                .text_color(if active { active_fg } else { muted })
+                                .group_hover(hover_group.clone(), |style| {
+                                    style.text_color(active_fg)
+                                })
+                                .child(crate::gpui_shell::widgets::terminal_glyph(
+                                    glyph,
+                                    TAB_LABEL_ICON_SIZE,
+                                )),
+                        )
+                    })
+                    .when(
+                        pane_count > 1
+                            && !is_settings
+                            && logo_image.is_none()
+                            && !has_program_glyph,
+                        |row| {
+                            row.child(
+                                div()
+                                    .w(px(TAB_LABEL_ICON_W))
+                                    .flex_shrink_0()
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .child(pane_header::split_glyph(
+                                        label_px * 0.78,
+                                        if active { active_fg } else { muted },
+                                    )),
+                            )
+                        },
+                    )
+                    // GPUI truncates the actual shaped title within its flex column.
+                    .child(match renaming {
+                        Some(input) => div()
+                            .flex_1()
+                            .min_w_0()
+                            .h_full()
+                            .flex()
+                            .items_center()
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                                if event.keystroke.key == "escape" {
+                                    cx.stop_propagation();
+                                    this.cancel_rename(window, cx);
+                                }
+                            }))
+                            .child(
+                                Input::new(&input)
+                                    .w_full()
+                                    .text_size(px(label_px))
+                                    .font_family(chrome_family.clone()),
+                            )
+                            .into_any_element(),
+                        None => div()
+                            .flex_1()
+                            .min_w_0()
+                            .font_family(chrome_family.clone())
+                            .text_size(px(label_px))
+                            .font_weight(FontWeight::NORMAL)
+                            .truncate()
+                            .child(title)
+                            .into_any_element(),
+                    })
+                    .when(pane_count > 1, |row| {
+                        row.child(
+                            div()
+                                .id(("sidebar-pane-count", ix))
+                                .size(px(28.0))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .rounded(px(4.0))
+                                .hover(|style| style.bg(theme.muted.opacity(0.5)))
+                                .active(|style| style.bg(theme.muted))
+                                .flex_shrink_0()
+                                .cursor_pointer()
+                                .on_click(cx.listener(move |this, _, window, cx| {
+                                    cx.stop_propagation();
+                                    this.cycle_pane_focus(ix, window, cx);
+                                }))
+                                .child(pane_header::split_layout_icon(
+                                    &self.tabs[ix],
+                                    label_px,
                                     if active { active_fg } else { muted },
                                 )),
                         )
-                    },
-                )
-                // GPUI truncates the actual shaped title within its flex column.
-                .child(match renaming {
-                    Some(input) => div()
-                        .flex_1()
-                        .min_w_0()
-                        .h_full()
-                        .flex()
-                        .items_center()
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                            if event.keystroke.key == "escape" {
-                                cx.stop_propagation();
-                                this.cancel_rename(window, cx);
-                            }
-                        }))
-                        .child(
-                            Input::new(&input)
-                                .w_full()
-                                .text_size(px(label_px))
-                                .font_family(chrome_family.clone()),
-                        )
-                        .into_any_element(),
-                    None => div()
-                        .flex_1()
-                        .min_w_0()
-                        .font_family(chrome_family.clone())
-                        .text_size(px(label_px))
-                        .font_weight(FontWeight::NORMAL)
-                        .truncate()
-                        .child(title)
-                        .into_any_element(),
-                })
-                .when(pane_count > 1, |row| {
-                    row.child(
-                        div()
-                            .id(("sidebar-pane-count", ix))
-                            .size(px(28.0))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .rounded(px(4.0))
-                            .hover(|style| style.bg(theme.muted.opacity(0.5)))
-                            .active(|style| style.bg(theme.muted))
-                            .flex_shrink_0()
-                            .cursor_pointer()
-                            .on_click(cx.listener(move |this, _, window, cx| {
-                                cx.stop_propagation();
-                                this.cycle_pane_focus(ix, window, cx);
-                            }))
-                            .child(pane_header::split_layout_icon(
-                                &self.tabs[ix],
-                                label_px,
-                                if active { active_fg } else { muted },
-                            )),
-                    )
-                })
-                .child(
-                    Self::tab_status_slot(status_width)
-                        .when_some(resting_status, |slot, status| {
-                            slot.child(
+                    })
+                    .child(
+                        Self::tab_status_slot(status_width)
+                            .when_some(resting_status, |slot, status| {
+                                slot.child(
+                                    h_flex()
+                                        .absolute()
+                                        .inset_0()
+                                        .justify_end()
+                                        .items_center()
+                                        .group_hover(hover_group.clone(), |item| item.invisible())
+                                        .child(if matches!(activity, SidebarActivity::Idle) {
+                                            status
+                                        } else {
+                                            Self::tab_status_icon(status).into_any_element()
+                                        }),
+                                )
+                            })
+                            .child(
+                                // 关闭按钮跟状态徽章共用同一个居中槽位：位置由
+                                // flex 给出，不再硬写 top 偏移。
                                 h_flex()
                                     .absolute()
                                     .inset_0()
                                     .justify_end()
                                     .items_center()
-                                    .group_hover(hover_group.clone(), |item| item.invisible())
-                                    .child(if matches!(activity, SidebarActivity::Idle) {
-                                        status
-                                    } else {
-                                        Self::tab_status_icon(status).into_any_element()
-                                    }),
-                            )
-                        })
-                        .child(
-                            // 关闭按钮跟状态徽章共用同一个居中槽位：位置由
-                            // flex 给出，不再硬写 top 偏移。
-                            h_flex()
-                                .absolute()
-                                .inset_0()
-                                .justify_end()
-                                .items_center()
-                                .invisible()
-                                .group_hover(hover_group, |slot| slot.visible())
-                                .when(tab_close_visible, |slot| {
+                                    .invisible()
+                                    .group_hover(hover_group, |slot| slot.visible())
+                                    .when(tab_close_visible, |slot| {
                                         slot.child(Self::tab_status_icon(
                                             Button::new(("close-tab", ix))
                                                 .icon(IconName::Close)
@@ -591,23 +624,23 @@ impl NebulaWorkspace {
                                                 )),
                                         ))
                                     }),
-                        ),
-                )
-                // 右键只记锚点：菜单由 workspace 根上唯一一份宿主画。挂
-                // `.context_menu()` 会让每个标签行都渲染同一个 PopupMenu，
-                // 阴影按标签数叠厚（见 `tab_menu.rs` 模块头）。
-                .on_mouse_down(
-                    MouseButton::Right,
-                    cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                        cx.stop_propagation();
-                        this.open_tab_context_menu(ix, event.position, window, cx);
-                    }),
-                )
-                .when_some(cross_window_drag, |row, payload| {
-                    row.on_drag(payload, |payload, _, _, cx| {
-                        NebulaWorkspace::cross_window_drag_preview(payload, cx)
-                    })
-                });
+                            ),
+                    )
+                    // 右键只记锚点：菜单由 workspace 根上唯一一份宿主画。挂
+                    // `.context_menu()` 会让每个标签行都渲染同一个 PopupMenu，
+                    // 阴影按标签数叠厚（见 `tab_menu.rs` 模块头）。
+                    .on_mouse_down(
+                        MouseButton::Right,
+                        cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                            cx.stop_propagation();
+                            this.open_tab_context_menu(ix, event.position, window, cx);
+                        }),
+                    )
+                    .when_some(cross_window_drag, |row, payload| {
+                        row.on_drag(payload, |payload, _, _, cx| {
+                            NebulaWorkspace::cross_window_drag_preview(payload, cx)
+                        })
+                    });
                 if dragged {
                     // 骑指针 + 提到最上层画（deferred 只延后绘制、不动布局），
                     // 阴影给"拿起来"的抬升感。
@@ -744,19 +777,20 @@ impl NebulaWorkspace {
                                         this.add_terminal(window, cx);
                                     }),
                                 )
-                                    .rounded_md()
-                                    .text_color(muted)
-                                    .hover(|button| button.bg(hover_bg).text_color(theme.foreground))
-                                    .tooltip(|window, cx| {
-                                        gpui_component::tooltip::Tooltip::new(
-                                            crate::gpui_shell::config::ui_language(cx)
-                                                .text(crate::i18n::Message::ChromeNewTerminalCtrlShiftT),
-                                        )
-                                        .build(window, cx)
-                                    })
-                                    .child(
-                                        Icon::new(IconName::Plus).with_size(px(SIDEBAR_HEADER_ICON)),
-                                    ),
+                                .rounded_md()
+                                .text_color(muted)
+                                .hover(|button| button.bg(hover_bg).text_color(theme.foreground))
+                                .tooltip(|window, cx| {
+                                    gpui_component::tooltip::Tooltip::new(
+                                        crate::gpui_shell::config::ui_language(cx).text(
+                                            crate::i18n::Message::ChromeNewTerminalCtrlShiftT,
+                                        ),
+                                    )
+                                    .build(window, cx)
+                                })
+                                .child(
+                                    Icon::new(IconName::Plus).with_size(px(SIDEBAR_HEADER_ICON)),
+                                ),
                             )
                             .child(
                                 h_flex()
@@ -769,13 +803,15 @@ impl NebulaWorkspace {
                                     .rounded_md()
                                     .cursor_pointer()
                                     .text_color(muted)
-                                    .hover(|button| button.bg(hover_bg).text_color(theme.foreground))
+                                    .hover(|button| {
+                                        button.bg(hover_bg).text_color(theme.foreground)
+                                    })
                                     .tooltip(|window, cx| {
                                         gpui_component::tooltip::Tooltip::new(
                                             crate::gpui_shell::config::ui_language(cx)
                                                 .text(crate::i18n::Message::ChromeNewTerminalCtrlK),
                                         )
-                                            .build(window, cx)
+                                        .build(window, cx)
                                     })
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         cx.stop_propagation();

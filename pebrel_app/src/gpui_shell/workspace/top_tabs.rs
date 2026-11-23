@@ -139,6 +139,7 @@ impl NebulaWorkspace {
         let muted = theme.muted_foreground;
         let active_bg = theme.sidebar_accent;
         let active_fg = theme.sidebar_accent_foreground;
+        let glass = crate::gpui_shell::theme::selection_glass(cx);
         let hover_bg = theme.list_hover;
         let dark = theme.is_dark();
         let settings = cx.try_global::<crate::gpui_shell::config::Settings>();
@@ -209,7 +210,10 @@ impl NebulaWorkspace {
                     SidebarActivity::Running => {
                         let (track, head) =
                             crate::gpui_shell::theme::sidebar_spinner_colors(cx, active);
-                        Some(Self::spinner(self.spinner_phase, track, head, cx.weak_entity()).into_any_element())
+                        Some(
+                            Self::spinner(self.spinner_phase, track, head, cx.weak_entity())
+                                .into_any_element(),
+                        )
                     },
                     SidebarActivity::Paused => Some(
                         Icon::new(IconName::Pause)
@@ -232,14 +236,12 @@ impl NebulaWorkspace {
                             .text_color(theme.danger)
                             .into_any_element(),
                     ),
-                    SidebarActivity::WaitingInput => Some(
-                        Self::waiting_hand(label_px, theme.primary)
-                            .into_any_element(),
-                    ),
-                    SidebarActivity::Attention => Some(
-                        Self::waiting_hand(label_px, theme.warning)
-                            .into_any_element(),
-                    ),
+                    SidebarActivity::WaitingInput => {
+                        Some(Self::waiting_hand(label_px, theme.primary).into_any_element())
+                    },
+                    SidebarActivity::Attention => {
+                        Some(Self::waiting_hand(label_px, theme.warning).into_any_element())
+                    },
                     SidebarActivity::Failed => Some(
                         Icon::new(IconName::CircleX)
                             .xsmall()
@@ -263,7 +265,7 @@ impl NebulaWorkspace {
                     a: 1.0,
                 });
                 let (dragged, shift) = match drag {
-                    Some((source, _, _)) if ix == source => (true, 0.0),
+                    Some((source, ..)) if ix == source => (true, 0.0),
                     Some((source, target, _)) if source < target && ix > source && ix <= target => {
                         (false, -pitch)
                     },
@@ -275,9 +277,11 @@ impl NebulaWorkspace {
 
                 let row = h_flex()
                     .id(("top-tab", ix))
-                    .when_some(tooltip, |row, text| row.tooltip(move |window, cx| {
-                        super::tab_presentation::tooltip(text.clone(), window, cx)
-                    }))
+                    .when_some(tooltip, |row, text| {
+                        row.tooltip(move |window, cx| {
+                            super::tab_presentation::tooltip(text.clone(), window, cx)
+                        })
+                    })
                     .debug_selector(|| format!("top-tab-{ix}"))
                     .group(hover_group.clone())
                     .relative()
@@ -299,7 +303,10 @@ impl NebulaWorkspace {
                     // TitleBar 的父层是 WindowControlArea::Drag；tab 必须自己
                     // 占住普通鼠标命中区，滚轮仍交给外层标签滚动容器。
                     .block_mouse_except_scroll()
-                    .when(active, |item| item.bg(active_bg).text_color(active_fg))
+                    .when(active, |item| {
+                        let item = item.text_color(active_fg);
+                        if let Some(glass) = glass { glass.apply(item) } else { item.bg(active_bg) }
+                    })
                     .when(!active && !dragged, |item| {
                         item.text_color(muted).hover(|style| style.bg(hover_bg))
                     })
@@ -380,9 +387,11 @@ impl NebulaWorkspace {
                                 .flex()
                                 .justify_center()
                                 .child(
-                                    Icon::new(IconName::Settings)
-                                        .small()
-                                        .text_color(if active { active_fg } else { muted }),
+                                    Icon::new(IconName::Settings).small().text_color(if active {
+                                        active_fg
+                                    } else {
+                                        muted
+                                    }),
                                 ),
                         )
                     })
@@ -397,13 +406,20 @@ impl NebulaWorkspace {
                     .when_some(program_glyph, |row, glyph| {
                         row.child(
                             div()
-                                .w(px(if logo_pending { TAB_LABEL_ICON_SIZE } else { TAB_LABEL_ICON_W }))
+                                .w(px(if logo_pending {
+                                    TAB_LABEL_ICON_SIZE
+                                } else {
+                                    TAB_LABEL_ICON_W
+                                }))
                                 .flex_shrink_0()
                                 .font_family(symbol_family.clone())
                                 .text_size(px(label_px))
                                 .font_weight(FontWeight::NORMAL)
                                 .text_color(if active { active_fg } else { muted })
-                                .child(crate::gpui_shell::widgets::terminal_glyph(glyph, TAB_LABEL_ICON_SIZE)),
+                                .child(crate::gpui_shell::widgets::terminal_glyph(
+                                    glyph,
+                                    TAB_LABEL_ICON_SIZE,
+                                )),
                         )
                     })
                     .when(
@@ -422,7 +438,7 @@ impl NebulaWorkspace {
                                     .child(pane_header::split_glyph(
                                         label_px * 0.78,
                                         if active { active_fg } else { muted },
-                                )),
+                                    )),
                             )
                         },
                     )
@@ -434,14 +450,12 @@ impl NebulaWorkspace {
                             .flex()
                             .items_center()
                             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                            .on_key_down(cx.listener(
-                                |this, event: &KeyDownEvent, window, cx| {
-                                    if event.keystroke.key == "escape" {
-                                        cx.stop_propagation();
-                                        this.cancel_rename(window, cx);
-                                    }
-                                },
-                            ))
+                            .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                                if event.keystroke.key == "escape" {
+                                    cx.stop_propagation();
+                                    this.cancel_rename(window, cx);
+                                }
+                            }))
                             .child(
                                 Input::new(&input)
                                     .w_full()
@@ -509,19 +523,19 @@ impl NebulaWorkspace {
                                     .invisible()
                                     .group_hover(hover_group, |slot| slot.visible())
                                     .when(tab_close_visible || settings_navigation, |slot| {
-                                            slot.child(Self::tab_status_icon(
-                                                Button::new(("top-close-tab", ix))
-                                                    .icon(IconName::Close)
-                                                    .ghost()
-                                                    .xsmall()
-                                                    .on_click(cx.listener(
-                                                        move |this, _, window, cx| {
-                                                            cx.stop_propagation();
-                                                            this.close_top_tab(ix, window, cx);
-                                                        },
-                                                    )),
-                                            ))
-                                        }),
+                                        slot.child(Self::tab_status_icon(
+                                            Button::new(("top-close-tab", ix))
+                                                .icon(IconName::Close)
+                                                .ghost()
+                                                .xsmall()
+                                                .on_click(cx.listener(
+                                                    move |this, _, window, cx| {
+                                                        cx.stop_propagation();
+                                                        this.close_top_tab(ix, window, cx);
+                                                    },
+                                                )),
+                                        ))
+                                    }),
                             ),
                     )
                     .when_some(cross_window_drag, |row, payload| {
@@ -719,6 +733,9 @@ impl NebulaWorkspace {
                         )
                             .debug_selector(|| "command-manager-toggle".into())
                             .selected(self.command_manager_open)
+                            .when(self.command_manager_open, |button| {
+                                crate::gpui_shell::theme::selected_glass(button, cx)
+                            })
                             .tooltip(language.text(Message::ChromeCommandList))
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.toggle_command_manager(window, cx);
