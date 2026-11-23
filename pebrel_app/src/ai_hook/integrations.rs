@@ -6,23 +6,9 @@ use pebrel_settings::AgentHook;
 
 use crate::ai_agents::AgentKind;
 
-pub(crate) const AGENTS: [AgentKind; 15] = [
-    AgentKind::Claude,
-    AgentKind::Codex,
-    AgentKind::OpenCode,
-    AgentKind::Cursor,
-    AgentKind::Kimi,
-    AgentKind::Pi,
-    AgentKind::OhMyPi,
-    AgentKind::Copilot,
-    AgentKind::Grok,
-    AgentKind::Qoder,
-    AgentKind::CodeBuddy,
-    AgentKind::Qwen,
-    AgentKind::Droid,
-    AgentKind::Antigravity,
-    AgentKind::Hermes,
-];
+/// Show every recognized agent in Settings. Hook-capable clients receive their
+/// protocol-specific toggle; other clients are explicitly process-detection only.
+pub(crate) const AGENTS: [AgentKind; 29] = AgentKind::ALL;
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct HookInspection {
@@ -33,6 +19,10 @@ pub(crate) struct HookInspection {
     pub enabled: bool,
     pub helper_missing: bool,
     pub error: Option<String>,
+    pub desktop_installed: bool,
+    pub desktop_running: bool,
+    pub desktop_profile_initialized: bool,
+    pub desktop_executable: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug)]
@@ -59,28 +49,58 @@ pub(crate) fn hook_for(agent: AgentKind) -> Option<AgentHook> {
         AgentKind::Qwen => Some(AgentHook::Qwen),
         AgentKind::Droid => Some(AgentHook::Droid),
         AgentKind::Antigravity => Some(AgentHook::Antigravity),
+        AgentKind::DeepSeekHarness => Some(AgentHook::DeepSeekHarness),
         _ => None,
     }
 }
 
 pub(crate) fn inspect() -> Vec<AgentIntegration> {
     let dirs = executable_directories();
+    let deepseek = super::local::deepseek_harness_state();
     AGENTS
         .into_iter()
         .map(|agent| {
             let hook = hook_for(agent);
             AgentIntegration {
                 agent,
-                executable: find_executable(agent, &dirs),
+                executable: if agent == AgentKind::DeepSeekHarness {
+                    deepseek.desktop_executable.clone()
+                } else {
+                    find_executable(agent, &dirs)
+                },
                 hook,
-                inspection: hook.map(inspect_hook).unwrap_or_default(),
+                inspection: if agent == AgentKind::DeepSeekHarness {
+                    let mut inspection = hook.map(inspect_hook).unwrap_or_default();
+                    inspection.desktop_installed = deepseek.desktop_installed;
+                    inspection.desktop_running = deepseek.desktop_running;
+                    inspection.desktop_profile_initialized = deepseek.profile_initialized;
+                    inspection.desktop_executable = deepseek.desktop_executable.clone();
+                    inspection
+                } else {
+                    hook.map(inspect_hook).unwrap_or_default()
+                },
             }
         })
         .collect()
 }
 
 pub(crate) fn executable(agent: AgentKind) -> Option<PathBuf> {
+    if agent == AgentKind::DeepSeekHarness {
+        return super::local::deepseek_harness_executable();
+    }
     find_executable(agent, &executable_directories())
+}
+
+pub(crate) fn install_deepseek_harness_desktop() -> Result<(), String> {
+    super::local::install_deepseek_harness_desktop().map_err(|error| error.to_string())
+}
+
+pub(crate) fn launch_deepseek_harness() -> Result<(), String> {
+    super::local::launch_deepseek_harness().map_err(|error| error.to_string())
+}
+
+pub(crate) fn uninstall_deepseek_harness() -> Result<(), String> {
+    super::local::uninstall_deepseek_harness().map_err(|error| error.to_string())
 }
 
 fn inspect_hook(hook: AgentHook) -> HookInspection {
@@ -104,6 +124,7 @@ fn executable_directories() -> Vec<PathBuf> {
             home.join(".opencode/bin"),
             home.join(".kimi-code/bin"),
             home.join(".pi/agent/bin"),
+            home.join(".dsh/bin"),
         ]);
     }
     if cfg!(target_os = "macos") {
@@ -222,6 +243,72 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir(dir.path().join("claude")).unwrap();
         assert_eq!(find_executable(AgentKind::Claude, &[dir.path().to_path_buf()]), None);
+    }
+
+    #[test]
+    fn agents_page_exposes_all_recognized_clients_and_only_verified_hook_protocols() {
+        assert_eq!(AGENTS, AgentKind::ALL);
+        let supported = [
+            (AgentKind::Claude, AgentHook::Claude),
+            (AgentKind::Codex, AgentHook::Codex),
+            (AgentKind::OpenCode, AgentHook::OpenCode),
+            (AgentKind::Pi, AgentHook::Pi),
+            (AgentKind::Copilot, AgentHook::Copilot),
+            (AgentKind::Grok, AgentHook::Grok),
+            (AgentKind::OhMyPi, AgentHook::OhMyPi),
+            (AgentKind::Cursor, AgentHook::Cursor),
+            (AgentKind::Kimi, AgentHook::Kimi),
+            (AgentKind::Qoder, AgentHook::Qoder),
+            (AgentKind::CodeBuddy, AgentHook::CodeBuddy),
+            (AgentKind::Qwen, AgentHook::Qwen),
+            (AgentKind::Droid, AgentHook::Droid),
+            (AgentKind::Antigravity, AgentHook::Antigravity),
+            (AgentKind::DeepSeekHarness, AgentHook::DeepSeekHarness),
+        ];
+        for (agent, hook) in supported {
+            assert_eq!(hook_for(agent), Some(hook), "{} hook protocol mapping", agent.slug());
+        }
+        assert_eq!(
+            AGENTS.iter().filter_map(|agent| hook_for(*agent)).count(),
+            AgentHook::ALL.len()
+        );
+        for agent in [
+            AgentKind::Gemini,
+            AgentKind::Aider,
+            AgentKind::Amp,
+            AgentKind::Goose,
+            AgentKind::Auggie,
+            AgentKind::Hermes,
+            AgentKind::Vibe,
+            AgentKind::Cline,
+            AgentKind::Devin,
+            AgentKind::Kiro,
+            AgentKind::Kilo,
+            AgentKind::Maki,
+            AgentKind::Trae,
+            AgentKind::CommandCode,
+        ] {
+            assert_eq!(
+                hook_for(agent),
+                None,
+                "{} must not claim an unimplemented hook",
+                agent.slug()
+            );
+        }
+    }
+
+    #[test]
+    fn deepseek_harness_is_a_first_class_agent_with_its_own_hook_preference() {
+        assert!(AGENTS.contains(&AgentKind::DeepSeekHarness));
+        assert_eq!(AgentKind::parse("DeepSeek Harness.exe"), Some(AgentKind::DeepSeekHarness));
+        assert_eq!(AgentKind::parse_command("dsh"), Some(AgentKind::DeepSeekHarness));
+        assert_eq!(
+            AgentKind::DeepSeekHarness.start_command(),
+            None,
+            "Desktop launch is managed by the dedicated installer/launcher, not a guessed CLI command"
+        );
+        assert_eq!(hook_for(AgentKind::DeepSeekHarness), Some(AgentHook::DeepSeekHarness));
+        assert_eq!(AgentHook::DeepSeekHarness.settings_key(), "ai_hooks_deepseek_harness");
     }
 
     #[test]

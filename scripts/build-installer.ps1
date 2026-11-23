@@ -109,24 +109,15 @@ if ($PackageBrand -eq 'Pebrel' -and (Get-Item -LiteralPath $packagedExe).Version
 if (-not $AllowStale) {
     $memberDirs = @(
         'pebrel_app', 'pebrel_terminal', 'pebrel_config', 'pebrel_config_derive',
-        'pebrel-completions', 'pebrel_gpui', 'pebrel_settings', 'pebrel_split'
+        'pebrel-completions', 'pebrel_gpui', 'pebrel_settings', 'pebrel_split',
+        'mobile/link', 'third_party/winit'
     ) | ForEach-Object { Join-Path $repo $_ }
     $sourceScopes = @(
-        @{
-            Binary = (Join-Path $targetRoot 'pebrel-cli.exe')
-            Roots = $memberDirs + @((Join-Path $repo 'Cargo.toml'))
-        },
-        @{
-            Binary = $packagedExe
-            Roots = $memberDirs + @((Join-Path $repo 'Cargo.toml'))
-        },
-        @{
-            Binary = (Join-Path $targetRoot 'pebrel-hook.exe')
-            Roots = @(
-                (Join-Path $repo 'pebrel_hook'),
-                (Join-Path $repo 'Cargo.toml')
-            )
-        }
+        @{ Binary = (Join-Path $targetRoot 'pebrel-cli.exe'); Roots = $memberDirs + @((Join-Path $repo 'Cargo.toml')) },
+        @{ Binary = $packagedExe; Roots = $memberDirs + @(
+            (Join-Path $repo 'Cargo.toml'), (Join-Path $repo '..\gpui-component-fork\crates')) },
+        @{ Binary = (Join-Path $targetRoot 'pebrel-hook.exe'); Roots = @(
+            (Join-Path $repo 'pebrel_hook'), (Join-Path $repo 'Cargo.toml')) }
     )
     foreach ($scope in $sourceScopes) {
         $newestSource = [datetime]::MinValue

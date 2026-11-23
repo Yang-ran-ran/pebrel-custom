@@ -13,7 +13,32 @@ mod codex_hooks;
 mod codex_notify;
 mod config_guard;
 mod cursor;
+mod deepseek_harness;
 mod extended;
+
+pub(super) fn deepseek_harness_state() -> deepseek_harness::State {
+    deepseek_harness::inspect()
+}
+
+pub(super) fn deepseek_harness_executable() -> Option<std::path::PathBuf> {
+    deepseek_harness::desktop_executable()
+}
+
+pub(super) fn install_deepseek_harness_desktop() -> std::io::Result<()> {
+    deepseek_harness::install_desktop()
+}
+
+pub(super) fn launch_deepseek_harness() -> std::io::Result<()> {
+    deepseek_harness::launch_desktop()
+}
+
+pub(super) fn uninstall_deepseek_harness() -> std::io::Result<()> {
+    deepseek_harness::uninstall_desktop()
+}
+
+pub(super) fn open_deepseek_harness_download() -> std::io::Result<()> {
+    deepseek_harness::open_download_page()
+}
 mod kimi;
 mod managed_files;
 mod runtime_skills;

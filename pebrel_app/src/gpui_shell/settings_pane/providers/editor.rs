@@ -55,6 +55,125 @@ impl SettingsPane {
         cx.notify();
     }
 
+    fn test_provider_connection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.provider_test_running
+            || self.provider_ui.fetching
+            || self.provider_ui.write_task.is_some()
+            || self.provider_ui.loading_auth
+        {
+            return;
+        }
+        let provider = match self.provider_draft(cx) {
+            Ok(provider) => provider,
+            Err(error) => {
+                self.provider_status = Some(ProviderStatus::Error(error));
+                cx.notify();
+                return;
+            },
+        };
+        let key = match crate::ai_providers::parse_auth_draft(
+            self.provider_ui.auth.read(cx).value().as_ref(),
+            &provider.api_key_hint,
+        ) {
+            Ok(key) => key,
+            Err(error) => {
+                self.provider_status = Some(ProviderStatus::Error(error));
+                cx.notify();
+                return;
+            },
+        };
+        let id = provider.id.clone();
+        self.provider_test_seq = self.provider_test_seq.wrapping_add(1);
+        let sequence = self.provider_test_seq;
+        self.provider_test_running = true;
+        self.provider_status = Some(ProviderStatus::Testing);
+        let task = cx
+            .background_executor()
+            .spawn(async move { crate::ai_providers::test_provider_with_key(&provider, key) });
+        cx.spawn_in(window, async move |this, cx| {
+            let result = task.await;
+            let _ = this.update_in(cx, |this, _window, cx| {
+                if this.provider_test_seq != sequence
+                    || this.provider_ui.editing.as_ref() != Some(&id)
+                {
+                    return;
+                }
+                this.provider_test_running = false;
+                this.provider_status = Some(ProviderStatus::TestResult {
+                    outcome: result.outcome,
+                    elapsed_ms: result.elapsed_ms,
+                });
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    fn test_deepseek_generation(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.provider_test_running
+            || self.provider_ui.fetching
+            || self.provider_ui.write_task.is_some()
+            || self.provider_ui.loading_auth
+        {
+            return;
+        }
+        let provider = match self.provider_draft(cx) {
+            Ok(provider) => provider,
+            Err(error) => {
+                self.provider_status = Some(ProviderStatus::Error(error));
+                cx.notify();
+                return;
+            },
+        };
+        if provider.kind != ProviderKind::DeepSeek {
+            self.provider_status =
+                Some(ProviderStatus::Error("Select the DeepSeek API preset first".into()));
+            cx.notify();
+            return;
+        }
+        let key = match crate::ai_providers::parse_auth_draft(
+            self.provider_ui.auth.read(cx).value().as_ref(),
+            &provider.api_key_hint,
+        ) {
+            Ok(key) => key,
+            Err(error) => {
+                self.provider_status = Some(ProviderStatus::Error(error));
+                cx.notify();
+                return;
+            },
+        };
+        let id = provider.id.clone();
+        self.provider_test_seq = self.provider_test_seq.wrapping_add(1);
+        let sequence = self.provider_test_seq;
+        self.provider_test_running = true;
+        self.provider_status = Some(ProviderStatus::TestingGeneration);
+        let task = cx.background_executor().spawn(async move {
+            let started = std::time::Instant::now();
+            let result = crate::ai_providers::test_deepseek_generation(&provider, key);
+            let elapsed_ms = started.elapsed().as_millis().min(u64::MAX as u128) as u64;
+            (result, elapsed_ms)
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let (result, elapsed_ms) = task.await;
+            let _ = this.update_in(cx, |this, _window, cx| {
+                if this.provider_test_seq != sequence
+                    || this.provider_ui.editing.as_ref() != Some(&id)
+                {
+                    return;
+                }
+                this.provider_test_running = false;
+                this.provider_status = Some(match result {
+                    Ok((_, preview)) => ProviderStatus::GenerationTest { preview, elapsed_ms },
+                    Err(error) => ProviderStatus::Error(error),
+                });
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
     fn fetch_provider_models(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.provider_ui.fetching
             || self.provider_ui.write_task.is_some()
@@ -254,7 +373,11 @@ impl SettingsPane {
                                     )
                                     .tooltip(language.text(Message::ProvidersFetch))
                                     .loading(self.provider_ui.fetching)
-                                    .disabled(self.provider_ui.fetching || busy)
+                                    .disabled(
+                                        self.provider_ui.fetching
+                                            || busy
+                                            || self.provider_test_running,
+                                    )
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.fetch_provider_models(window, cx)
                                     })),
@@ -293,11 +416,8 @@ impl SettingsPane {
                 )
             });
         let owner = cx.entity().downgrade();
-        let default_protocol = match kind {
-            ProviderKind::Anthropic => "Claude Messages",
-            ProviderKind::Google => "Gemini API",
-            _ => "Responses",
-        };
+        let default_protocol = super::default_wire_api(kind);
+        let protocol_provider_kind = provider.kind;
         let protocol = self.provider_ui.draft_wire_api.unwrap_or(if provider.wire_api.is_empty() {
             default_protocol
         } else {
@@ -366,18 +486,27 @@ impl SettingsPane {
                                 )
                                 .map(ProviderSelectTrigger::new)
                                 .dropdown_menu(move |mut menu, _, _| {
+                                    let current_kind = protocol_provider_kind;
                                     for (label, selected_kind) in [
                                         ("Responses", ProviderKind::Custom),
                                         ("Chat Completions", ProviderKind::OpenAi),
                                         ("Claude Messages", ProviderKind::Anthropic),
                                         ("Gemini API", ProviderKind::Google),
-                                    ] {
+                                    ]
+                                    .into_iter()
+                                    .filter(|(_, selected_kind)| {
+                                        current_kind != ProviderKind::DeepSeek
+                                            || *selected_kind != ProviderKind::Google
+                                    }) {
                                         let owner = owner.clone();
                                         menu = menu.item(PopupMenuItem::new(label).on_click(
                                             move |_, _, cx| {
                                                 let _ = owner.update(cx, |this, cx| {
                                                     this.provider_ui.draft_kind =
-                                                        Some(selected_kind);
+                                                        Some(super::provider_kind_for_protocol(
+                                                            current_kind,
+                                                            selected_kind,
+                                                        ));
                                                     this.provider_ui.draft_wire_api = Some(label);
                                                     this.provider_codex_confirm = None;
                                                     this.provider_ui.sequence =
@@ -541,7 +670,7 @@ impl SettingsPane {
                     .flex_shrink_0()
                     .child(
                         Button::new("provider-delete")
-                            .disabled(busy)
+                            .disabled(busy || self.provider_test_running)
                             .ghost()
                             .text_color(theme.danger)
                             .label(language.text(Message::ProvidersDeleteNode))
@@ -552,6 +681,28 @@ impl SettingsPane {
                     .child(
                         h_flex()
                             .gap_3()
+                            .when(kind == ProviderKind::DeepSeek, |bar| {
+                                bar.child(
+                                    Button::new("provider-generation-test")
+                                        .outline()
+                                        .loading(self.provider_test_running)
+                                        .disabled(busy || self.provider_test_running)
+                                        .label("Send test request")
+                                        .on_click(cx.listener(|this, _, window, cx| {
+                                            this.test_deepseek_generation(window, cx);
+                                        })),
+                                )
+                            })
+                            .child(
+                                Button::new("provider-test-connection")
+                                    .outline()
+                                    .loading(self.provider_test_running)
+                                    .disabled(busy || self.provider_test_running)
+                                    .label("Test connection")
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.test_provider_connection(window, cx);
+                                    })),
+                            )
                             .child(
                                 Button::new("provider-cancel")
                                     .disabled(busy)
@@ -563,7 +714,7 @@ impl SettingsPane {
                             )
                             .child(
                                 Button::new("provider-save")
-                                    .disabled(busy)
+                                    .disabled(busy || self.provider_test_running)
                                     .loading(self.provider_ui.write_task.is_some())
                                     .primary()
                                     .label(language.text(Message::ProvidersSave))

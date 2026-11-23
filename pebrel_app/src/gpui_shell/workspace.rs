@@ -7,16 +7,15 @@
 //!
 //! ## 分屏 pane 生命周期合同
 //!
-//! - 每个 Terminal tab 持有 `panes`（实体属主）+ `tree`（`pebrel_split`
-//!   布局树，叶 = pane id）+ `focused`。不变式：panes 的 id 集合 == 树的
-//!   叶集合。
-//! - 关一个 pane：`tree.remove_leaf` 裁定结局——`WasRoot` 关整个 tab；
-//!   `Collapsed(id)` 由兄弟子树收编空间、焦点交给其首叶。被摘 pane 立即
-//!   显式 `shutdown`，实体随 `panes` 移除而释放，`Drop` 兜底。
+//! - 每个 Terminal tab 持有 `panes`（实体属主）+ `tree`（`pebrel_split` 布局树，叶 = pane id）+
+//!   `focused`。不变式：panes 的 id 集合 == 树的 叶集合。
+//! - 关一个 pane：`tree.remove_leaf` 裁定结局——`WasRoot` 关整个 tab； `Collapsed(id)`
+//!   由兄弟子树收编空间、焦点交给其首叶。被摘 pane 立即 显式 `shutdown`，实体随 `panes`
+//!   移除而释放，`Drop` 兜底。
 //! - 关整个 tab（侧栏 ×、最后 pane 退出）：逐 pane `shutdown`。
-//! - PTY 尺寸：pane 矩形由布局树裁定，`TerminalElement` prepaint 回写
-//!   `set_layout`，resize 合并/提交合同（burst + settle）原样生效——分屏
-//!   拖拽期间 PTY 跟随提交比例，松手后一次落定，与旧壳语义一致。
+//! - PTY 尺寸：pane 矩形由布局树裁定，`TerminalElement` prepaint 回写 `set_layout`，resize
+//!   合并/提交合同（burst + settle）原样生效——分屏 拖拽期间 PTY
+//!   跟随提交比例，松手后一次落定，与旧壳语义一致。
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -110,7 +109,7 @@ pub(crate) use update_dialog::{open_update_dialog, show_update_notification};
 use tab_drag::{DockTarget, TabDrag, TabDragAxis};
 
 #[cfg(test)]
-use agents::ai_hook_target_pane;
+use agents::{ai_hook_target_pane, ai_hook_target_pane_for_cwd};
 use agents::{ai_session_palette_rows, restored_agent_command};
 
 gpui::actions!(

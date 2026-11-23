@@ -1,0 +1,6 @@
+# Pebrel's optional bridge for the DeepSeek Harness Desktop profile.
+- insert:
+    - id: pebrel-deepseek-harness-bridge
+      name: '@pebrel/deepseek-harness-bridge'
+      config:
+        helperPath: !!js process.env.PEBREL_HOOK_EXE

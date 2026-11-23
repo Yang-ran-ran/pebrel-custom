@@ -16,3 +16,5 @@ mobile/android/app/src/main/assets/reader/mermaid/** -text -whitespace
 mobile/android/app/src/main/assets/reader/highlight.min.js -text
 mobile/android/app/src/main/assets/reader/reader-compat.js -text
 mobile/android/third_party/licenses/ZXing-Core-Apache-2.0.txt -text
+# Rust sources must retain Unix newlines on Windows runners for rustfmt.
+*.rs text eol=lf

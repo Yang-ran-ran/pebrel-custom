@@ -538,7 +538,7 @@ fn kimi_capabilities_are_declared() {
 
 #[test]
 fn claude_style_agents_share_the_lifecycle_under_their_own_source() {
-    for source in ["qoder", "codebuddy", "qwen", "droid"] {
+    for source in ["qoder", "codebuddy", "qwen", "droid", "deepseek-harness"] {
         let parse = |body: &str| {
             let raw = format!("nebula-hook/1 source={source} pane=3\n{body}");
             parse_remote_envelope(raw.as_bytes(), Some(3))
@@ -547,6 +547,22 @@ fn claude_style_agents_share_the_lifecycle_under_their_own_source() {
         assert_eq!(stop.source, source);
         assert_eq!((stop.kind, stop.session_id.as_deref()), (AiHookKind::TurnDone, Some("s1")));
         assert_eq!(stop.turn_outcome, AiTurnOutcome::Succeeded);
+        let prompt = parse(r#"{"hook_event_name":"UserPromptSubmit","session_id":"s1","event_id":"dsh-session-42-8","bridge_sequence":8,"occurred_at_ms":1700000000000,"cwd":"C:/work/project"}"#).unwrap();
+        assert_eq!(prompt.kind, AiHookKind::PromptSubmit);
+        assert_eq!(prompt.session_id.as_deref(), Some("s1"));
+        assert_eq!(prompt.event_id.as_deref(), Some("dsh-session-42-8"));
+        assert_eq!(prompt.bridge_sequence, Some(8));
+        assert_eq!(prompt.occurred_at_ms, Some(1_700_000_000_000));
+        assert_eq!(
+            prompt.pane,
+            Some(3),
+            "Pane identity is taken from Pebrel's local hook envelope"
+        );
+        let tool =
+            parse(r#"{"hook_event_name":"PostToolUse","session_id":"s1","tool_name":"terminal"}"#)
+                .unwrap();
+        assert_eq!(tool.kind, AiHookKind::ToolComplete);
+        assert_eq!(tool.session_id.as_deref(), Some("s1"));
         let ask = r#"{"hook_event_name":"Notification","notification_type":"permission_prompt"}"#;
         assert_eq!(parse(ask).unwrap().kind, AiHookKind::NeedsAttention);
         let idle = r#"{"hook_event_name":"Notification","notification_type":"idle_prompt"}"#;
@@ -554,6 +570,30 @@ fn claude_style_agents_share_the_lifecycle_under_their_own_source() {
         assert!(parse(r#"{"hookEventName":"Stop","sessionId":"x"}"#).is_none());
         let camel = parse(r#"{"hook_event_name":"Stop","sessionId":"x"}"#).unwrap();
         assert_eq!(camel.session_id, None);
-        assert!(capabilities_for(source).attention_context);
+        if source == "deepseek-harness" {
+            let cwd = std::env::temp_dir();
+            let payload = serde_json::json!({
+                "hook_event_name": "Stop",
+                "session_id": "s1",
+                "cwd": cwd.to_string_lossy(),
+            })
+            .to_string();
+            let routed = parse(&payload).unwrap();
+            assert_eq!(routed.answer_cwd.as_deref(), Some(cwd.as_path()));
+        }
+        if source != "deepseek-harness" {
+            assert!(capabilities_for(source).attention_context);
+        }
     }
+}
+
+#[test]
+fn deepseek_harness_hook_capabilities_match_the_events_the_bridge_emits() {
+    let capabilities = capabilities_for("deepseek-harness");
+    assert!(capabilities.lifecycle);
+    assert!(!capabilities.attention_events);
+    assert!(!capabilities.attention_context);
+    assert!(!capabilities.background_tasks);
+    assert!(capabilities.bridge_sequence);
+    assert!(capabilities.serialized_delivery);
 }
