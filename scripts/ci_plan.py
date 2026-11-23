@@ -182,13 +182,7 @@ def plan_matrices(
         )
 
     if event_name in FULL_EVENTS:
-        native, release = _matrices()
-        if event_name not in {"workflow_dispatch", "workflow_call"}:
-            # Pushes, schedules and merge queues must not allocate Windows
-            # runners. Full Windows validation is intentionally opt-in.
-            native = [row for row in native if not row["os"].startswith("windows-")]
-            release = [row for row in release if not row["os"].startswith("windows-")]
-        return native, release
+        return _matrices()
 
     supported = sorted(FULL_EVENTS | {"pull_request"})
     raise PlanError(f"unsupported event name {event_name!r}; expected one of {', '.join(supported)}")

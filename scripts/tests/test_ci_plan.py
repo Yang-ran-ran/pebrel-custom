@@ -109,7 +109,7 @@ class CiPlanCliTests(unittest.TestCase):
             self.assertTrue(lines[1].startswith("native_matrix=[{"))
             self.assertTrue(lines[2].startswith("release_matrix=[{"))
 
-    def test_automatic_events_skip_windows_and_manual_events_keep_full_coverage(self) -> None:
+    def test_non_pr_events_keep_full_native_coverage(self) -> None:
         events = ("merge_group", "push", "workflow_dispatch", "workflow_call", "schedule")
         with tempfile.TemporaryDirectory() as directory:
             for event_name in events:
@@ -120,9 +120,7 @@ class CiPlanCliTests(unittest.TestCase):
                     plan = self.outputs(output)
                     self.assertEqual(
                         [row["os"] for row in plan["native_matrix"]],
-                        (["ubuntu-24.04", "windows-2022", "macos-26", "windows-11-arm", "macos-26-intel"]
-                         if event_name in {"workflow_dispatch", "workflow_call"}
-                         else ["ubuntu-24.04", "macos-26", "macos-26-intel"]),
+                        ["ubuntu-24.04", "windows-2022", "macos-26", "windows-11-arm", "macos-26-intel"],
                     )
                     self.assertEqual(
                         [row["os"] for row in plan["release_matrix"]],
@@ -268,8 +266,8 @@ class PrPathPolicyTests(unittest.TestCase):
             (["README.md", "docs/user-guide.md", "architecture/notes/scripts/ci/example.md"], set()),
             (["pebrel_app/src/gpui_shell/settings_pane/colors.rs"], {"ubuntu-24.04"}),
             (["pebrel_terminal/src/term/mod.rs", "pebrel_app/src/backup_remote.rs"], {"ubuntu-24.04"}),
-            (["pebrel_terminal/src/tty/windows/mod.rs"], {"ubuntu-24.04", "windows-2022", "windows-11-arm"}),
-            (["scripts/prepare-windows-runtime.ps1"], {"ubuntu-24.04", "windows-2022", "windows-11-arm"}),
+            (["pebrel_terminal/src/tty/windows/mod.rs"], {"ubuntu-24.04"}),
+            (["scripts/prepare-windows-runtime.ps1"], {"ubuntu-24.04"}),
             (["pebrel_app/src/platform/macos/notifications.rs"], {"ubuntu-24.04", "macos-26", "macos-26-intel"}),
             (["pebrel_app/src/notify_macos.rs"], {"ubuntu-24.04", "macos-26", "macos-26-intel"}),
             (["pebrel_terminal/src/tty/unix.rs"], {"ubuntu-24.04", "macos-26", "macos-26-intel"}),
