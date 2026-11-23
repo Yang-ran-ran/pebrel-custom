@@ -11,6 +11,76 @@ fn provider(wire: &str) -> AiProvider {
 }
 
 #[test]
+fn deepseek_real_requests_follow_all_three_selected_protocols() {
+    let messages = [Message { role: "user".into(), text: "测试真实模型请求".into() }];
+    for (wire, route) in [
+        ("Responses", "/responses"),
+        ("Chat Completions", "/chat/completions"),
+        ("Claude Messages", "/anthropic/v1/messages"),
+    ] {
+        let mut target = AiProvider::preset(ProviderKind::DeepSeek, "deepseek-client-test");
+        target.enabled = true;
+        target.wire_api = wire.into();
+        assert!(supported(&target), "{wire} must be a supported DeepSeek protocol");
+        let (url, body) = payload(&target, "zh-CN", &messages, "").unwrap();
+        assert_eq!(url, format!("https://api.deepseek.com{route}"));
+        assert_eq!(body["model"], "deepseek-flash");
+        match wire {
+            "Responses" => {
+                assert!(body.get("input").is_some());
+                assert_eq!(body["reasoning"]["effort"], "none");
+            },
+            "Chat Completions" => {
+                assert!(body.get("messages").is_some());
+                assert_eq!(body["thinking"]["type"], "disabled");
+            },
+            "Claude Messages" => {
+                assert!(body.get("messages").is_some());
+                assert_eq!(body["max_tokens"], 512);
+                assert_eq!(body["reasoning"]["effort"], "none");
+            },
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[test]
+fn deepseek_response_decoders_match_the_selected_wire_protocol() {
+    let mut target = AiProvider::preset(ProviderKind::DeepSeek, "deepseek-response-test");
+    for (wire, response) in [
+        (
+            "Responses",
+            json!({
+                "status":"completed",
+                "output":[{"type":"message","content":[{"type":"output_text","text":"responses ok"}]}]
+            }),
+        ),
+        (
+            "Chat Completions",
+            json!({
+                "choices":[{"finish_reason":"stop","message":{"content":"chat ok","refusal":null}}]
+            }),
+        ),
+        (
+            "Claude Messages",
+            json!({
+                "stop_reason":"end_turn",
+                "content":[{"type":"text","text":"messages ok"}]
+            }),
+        ),
+    ] {
+        target.wire_api = wire.into();
+        let expected = match wire {
+            "Responses" => "responses ok",
+            "Chat Completions" => "chat ok",
+            "Claude Messages" => "messages ok",
+            _ => unreachable!(),
+        };
+        assert_eq!(response_text(&target, &response).as_deref(), Some(expected));
+    }
+}
+
+#[test]
 fn partial_refused_and_ambiguous_responses_never_become_drafts() {
     let provider = provider("responses");
     let text = r#"{"suggestion":"跑一下中文输入测试"}"#;
@@ -68,6 +138,71 @@ fn requests_are_short_independent_and_contain_user_voice() {
     chat.full_url = true;
     chat.base_url = "https://example.invalid/custom-route".into();
     assert_eq!(payload(&chat, "en", &messages, "").unwrap().0, chat.base_url);
+}
+
+#[test]
+fn deepseek_messages_protocol_sends_the_expected_route_and_api_key_header() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut target = AiProvider::preset(ProviderKind::DeepSeek, "deepseek-messages-http");
+    target.enabled = true;
+    target.wire_api = "Claude Messages".into();
+    target.base_url = format!("http://{}", listener.local_addr().unwrap());
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        let mut bytes = Vec::new();
+        let mut buffer = [0; 1024];
+        loop {
+            let count = stream.read(&mut buffer).unwrap();
+            assert_ne!(count, 0);
+            bytes.extend_from_slice(&buffer[..count]);
+            if let Some(end) = bytes.windows(4).position(|window| window == b"\r\n\r\n") {
+                let headers = String::from_utf8_lossy(&bytes[..end]);
+                let length: usize = headers
+                    .lines()
+                    .find_map(|line| {
+                        let (name, value) = line.split_once(':')?;
+                        name.eq_ignore_ascii_case("content-length")
+                            .then(|| value.trim().parse().unwrap())
+                    })
+                    .unwrap();
+                if bytes.len() >= end + 4 + length {
+                    break;
+                }
+            }
+        }
+        let request = String::from_utf8_lossy(&bytes);
+        assert!(request.starts_with("POST /anthropic/v1/messages HTTP/1.1"));
+        assert!(request.to_ascii_lowercase().contains("x-api-key: synthetic-test-key"));
+        assert!(!request.to_ascii_lowercase().contains("authorization: bearer"));
+        assert!(request.contains("\"max_tokens\":512"));
+        let body = json!({
+            "stop_reason":"end_turn",
+            "content":[{
+                "type":"text",
+                "text":"{\"suggestion\":\"DeepSeek Messages 已真实返回\"}"
+            }]
+        })
+        .to_string();
+        write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        )
+        .unwrap();
+    });
+    let client = PreparedClient {
+        provider: target,
+        key: Zeroizing::new(b"synthetic-test-key".to_vec()),
+        shared_preferences: String::new(),
+    };
+    let result = client.request(
+        "zh-CN",
+        &[Message { role: "user".into(), text: "请给我一个测试建议".into() }],
+        &AtomicBool::new(false),
+    );
+    assert_eq!(result.unwrap().as_deref(), Some("DeepSeek Messages 已真实返回"));
+    server.join().unwrap();
 }
 
 #[test]

@@ -531,26 +531,44 @@ mod tests {
     }
 
     #[test]
+    fn rollout_record(
+        filename_id: &str,
+        metadata_id: &str,
+        source: Option<&str>,
+        thread_source: Option<&str>,
+    ) -> String {
+        let mut payload = serde_json::json!({"id": metadata_id});
+        if let Some(source) = source {
+            payload["source"] = serde_json::Value::String(source.to_owned());
+        }
+        if let Some(thread_source) = thread_source {
+            payload["thread_source"] = serde_json::Value::String(thread_source.to_owned());
+        }
+        let metadata = serde_json::json!({"type": "session_meta", "payload": payload});
+        format!(
+            "1996\t37\t/home/hello/.codex/sessions/2026/09/07/rollout-x-{filename_id}.jsonl\t{metadata}\n"
+        )
+    }
+
+    #[test]
     fn selects_cli_user_rollout_and_rejects_guardian_thread() {
         let output = format!(
-            "1996\t37\t/home/hello/.codex/sessions/2026/09/07/rollout-x-{ROOT_ID}.jsonl\t{{\"type\":\"session_meta\",\"payload\":{{\"id\":\"{ROOT_ID}\",\"source\":\"cli\",\"thread_source\":\"user\"}}}}\n1996\t80\t/home/hello/.codex/sessions/2026/09/07/rollout-x-{GUARDIAN_ID}.jsonl\t{{\"type\":\"session_meta\",\"payload\":{{\"id\":\"{GUARDIAN_ID}\",\"source\":\"cli\",\"thread_source\":\"guardian\"}}}}\n"
+            "{}{}",
+            rollout_record(ROOT_ID, ROOT_ID, Some("cli"), Some("user")),
+            rollout_record(GUARDIAN_ID, GUARDIAN_ID, Some("cli"), Some("guardian")),
         );
         assert_eq!(parse_probe_records(&output).as_deref(), Some(ROOT_ID));
     }
 
     #[test]
     fn rejects_a_rollout_bound_to_a_different_filename() {
-        let output = format!(
-            "1996\t37\t/home/hello/.codex/sessions/2026/09/07/rollout-x-{ROOT_ID}.jsonl\t{{\"type\":\"session_meta\",\"payload\":{{\"id\":\"{GUARDIAN_ID}\"}}}}\n"
-        );
+        let output = rollout_record(ROOT_ID, GUARDIAN_ID, None, None);
         assert_eq!(parse_probe_records(&output), None);
     }
 
     #[test]
     fn accepts_legacy_session_meta_without_thread_markers() {
-        let output = format!(
-            "1996\t37\t/home/hello/.codex/sessions/2026/09/07/rollout-x-{ROOT_ID}.jsonl\t{{\"type\":\"session_meta\",\"payload\":{{\"id\":\"{ROOT_ID}\"}}}}\n"
-        );
+        let output = rollout_record(ROOT_ID, ROOT_ID, None, None);
         assert_eq!(parse_probe_records(&output).as_deref(), Some(ROOT_ID));
     }
 
@@ -568,16 +586,16 @@ mod tests {
 
     #[test]
     fn explicit_subagent_markers_are_not_accepted_as_the_main_thread() {
-        let output = format!(
-            "1996\t37\t/home/hello/.codex/sessions/2026/09/07/rollout-x-{ROOT_ID}.jsonl\t{{\"type\":\"session_meta\",\"payload\":{{\"id\":\"{ROOT_ID}\",\"source\":\"subagent\",\"thread_source\":\"user\"}}}}\n"
-        );
+        let output = rollout_record(ROOT_ID, ROOT_ID, Some("subagent"), Some("user"));
         assert_eq!(parse_probe_records(&output), None);
     }
 
     #[test]
     fn multiple_distinct_main_rollouts_are_rejected_as_ambiguous() {
         let output = format!(
-            "1996\t37\t/home/hello/.codex/sessions/2026/09/07/rollout-x-{ROOT_ID}.jsonl\t{{\"type\":\"session_meta\",\"payload\":{{\"id\":\"{ROOT_ID}\",\"source\":\"cli\"}}}}\n1996\t38\t/home/hello/.codex/sessions/2026/09/07/rollout-x-{GUARDIAN_ID}.jsonl\t{{\"type\":\"session_meta\",\"payload\":{{\"id\":\"{GUARDIAN_ID}\",\"source\":\"cli\"}}}}\n"
+            "{}{}",
+            rollout_record(ROOT_ID, ROOT_ID, Some("cli"), None),
+            rollout_record(GUARDIAN_ID, GUARDIAN_ID, Some("cli"), None),
         );
         assert_eq!(parse_probe_records(&output), None);
         let rollouts = || parse_probe_context(&output).unwrap();

@@ -13,7 +13,7 @@ const ID_MAX_CHARS: usize = 512;
 
 /// Agents documenting Claude Code's hook payload; each signs its own source.
 pub(super) fn claude_style(source: &str) -> bool {
-    matches!(source, "claude" | "qoder" | "codebuddy" | "qwen" | "droid")
+    matches!(source, "claude" | "qoder" | "codebuddy" | "qwen" | "droid" | "deepseek-harness")
 }
 const TURN_RESULT_MAX_CHARS: usize = 4_000;
 static RECEIVE_SEQUENCE: AtomicU64 = AtomicU64::new(1);

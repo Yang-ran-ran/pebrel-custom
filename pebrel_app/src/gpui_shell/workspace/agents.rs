@@ -30,6 +30,47 @@ pub(super) fn ai_hook_target_pane(
 
 /// AI 接续是会话回放的独立闸门：关掉时 pane 的 cwd/launch/layout 仍可
 /// 恢复，但绝不把 AgentSession 转成会敲进新 shell 的命令。
+pub(super) fn ai_hook_target_pane_for_cwd(
+    pane_ids: &[u64],
+    event_pane: Option<u64>,
+    active_focused: Option<u64>,
+    event_cwd: Option<&str>,
+    pane_cwds: &[(u64, String)],
+) -> Option<u64> {
+    if let Some(pane_id) = event_pane {
+        return pane_ids.contains(&pane_id).then_some(pane_id);
+    }
+    let Some(event_cwd) = event_cwd.filter(|cwd| !cwd.trim().is_empty()) else {
+        return active_focused;
+    };
+    let matches = |pane_id: u64| {
+        pane_cwds
+            .iter()
+            .find(|(id, _)| *id == pane_id)
+            .is_some_and(|(_, cwd)| same_workspace_path(cwd, event_cwd))
+    };
+    active_focused
+        .filter(|pane_id| matches(*pane_id))
+        .or_else(|| {
+            pane_cwds.iter().find(|(_, cwd)| same_workspace_path(cwd, event_cwd)).map(|(id, _)| *id)
+        })
+        .or(active_focused)
+}
+
+fn same_workspace_path(left: &str, right: &str) -> bool {
+    let normalize = |path: &str| path.trim().trim_end_matches(['/', '\\']).replace('\\', "/");
+    let left = normalize(left);
+    let right = normalize(right);
+    #[cfg(windows)]
+    {
+        left.eq_ignore_ascii_case(&right)
+    }
+    #[cfg(not(windows))]
+    {
+        left == right
+    }
+}
+
 pub(super) fn restored_agent_command(
     resume_ai: bool,
     agent: Option<&crate::session::AgentSession>,
@@ -247,7 +288,28 @@ impl NebulaWorkspace {
             WorkspaceTab::Terminal { focused, .. } => Some(*focused),
             _ => None,
         });
-        let Some(target_id) = ai_hook_target_pane(&pane_ids, event.pane, active_focused) else {
+        let pane_cwds: Vec<(u64, String)> = self
+            .tabs
+            .iter()
+            .flat_map(|tab| match tab {
+                WorkspaceTab::Terminal { panes, .. } => panes
+                    .iter()
+                    .map(|pane| (pane.id, pane.view.read(cx).cwd.clone()))
+                    .collect::<Vec<_>>(),
+                _ => Vec::new(),
+            })
+            .collect();
+        let event_cwd = (event.source == "deepseek-harness")
+            .then(|| event.answer_cwd.as_deref())
+            .flatten()
+            .and_then(std::path::Path::to_str);
+        let Some(target_id) = ai_hook_target_pane_for_cwd(
+            &pane_ids,
+            event.pane,
+            active_focused,
+            event_cwd,
+            &pane_cwds,
+        ) else {
             return false;
         };
         let target = self.tabs.iter().find_map(|tab| match tab {

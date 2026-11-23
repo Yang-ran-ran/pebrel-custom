@@ -117,6 +117,7 @@ const CLAUDE_EVENTS: [&str; 10] = [
     "SessionEnd",
 ];
 
+pub(crate) use local::helper_path as ai_hook_helper_path;
 pub use local::{setup_ai_cli, spawn_config_guard};
 #[cfg(windows)]
 pub use windows::spawn_gpui_server;

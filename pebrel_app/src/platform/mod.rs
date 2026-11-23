@@ -17,6 +17,7 @@ pub(crate) mod ai_session_identity;
 pub(crate) mod background_media;
 pub mod capabilities;
 pub mod credentials;
+pub(crate) mod deepseek_harness;
 pub mod dirs;
 pub(crate) mod distribution;
 #[cfg(feature = "gpui-shell")]
