@@ -26,6 +26,15 @@ pub(super) struct AgentSettingsState {
     focus: Vec<FocusHandle>,
     #[cfg(all(test, feature = "gpui-test-support"))]
     test_operation: Option<TestOperation>,
+    desktop_feedback: Option<Result<String, String>>,
+}
+
+#[derive(Clone, Copy)]
+enum DeepSeekDesktopAction {
+    Install,
+    Launch,
+    Refresh,
+    Uninstall,
 }
 
 impl AgentSettingsState {
@@ -39,6 +48,7 @@ impl AgentSettingsState {
             focus: integrations::AGENTS.iter().map(|_| cx.focus_handle().tab_stop(true)).collect(),
             #[cfg(all(test, feature = "gpui-test-support"))]
             test_operation: None,
+            desktop_feedback: None,
         }
     }
 }
@@ -60,6 +70,50 @@ impl SettingsPane {
                 }
                 pane.agents.rows = Some(rows);
                 pane.agents.loading = false;
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    fn deepseek_desktop_action(
+        &mut self,
+        action: DeepSeekDesktopAction,
+        cx: &mut Context<Self>,
+    ) {
+        let agent = AgentKind::DeepSeekHarness;
+        if self.agents.loading || self.agents.busy.is_some() {
+            return;
+        }
+        self.agents.busy = Some(agent);
+        self.agents.desktop_feedback = None;
+        self.agents.sequence = self.agents.sequence.wrapping_add(1);
+        let sequence = self.agents.sequence;
+        let task = cx.background_executor().spawn(async move {
+            let result = match action {
+                DeepSeekDesktopAction::Install => integrations::install_deepseek_harness_desktop(),
+                DeepSeekDesktopAction::Launch => integrations::launch_deepseek_harness(),
+                DeepSeekDesktopAction::Refresh => Ok(()),
+                DeepSeekDesktopAction::Uninstall => integrations::uninstall_deepseek_harness(),
+            };
+            let message = match action {
+                DeepSeekDesktopAction::Install => "DeepSeek Harness setup completed".to_owned(),
+                DeepSeekDesktopAction::Launch => "DeepSeek Harness launch requested".to_owned(),
+                DeepSeekDesktopAction::Refresh => "DeepSeek Harness status refreshed".to_owned(),
+                DeepSeekDesktopAction::Uninstall => "DeepSeek Harness uninstaller started".to_owned(),
+            };
+            (result.map(|()| message), integrations::inspect())
+        });
+        cx.spawn(async move |this, cx| {
+            let (result, rows) = task.await;
+            let _ = this.update(cx, |pane, cx| {
+                if pane.agents.sequence != sequence {
+                    return;
+                }
+                pane.agents.rows = Some(rows);
+                pane.agents.busy = None;
+                pane.agents.desktop_feedback = Some(result);
                 cx.notify();
             });
         })
@@ -209,6 +263,20 @@ impl SettingsPane {
                 Err(error) => language.format(Message::SettingsAgentsFailed, &[("error", error)]),
             })
             .or_else(|| {
+                (agent == AgentKind::DeepSeekHarness)
+                    .then(|| self.agents.desktop_feedback.as_ref())
+                    .flatten()
+                    .filter(|_| !state.desktop_running)
+                    .map(|result| match result {
+                        Ok(message) => message.clone(),
+                        Err(error) => language.format(Message::SettingsAgentsFailed, &[("error", error)]),
+                    })
+            })
+            .or_else(|| {
+                (agent == AgentKind::DeepSeekHarness && state.desktop_running)
+                    .then(|| "Quit DeepSeek Harness from the tray menu before changing its Hook; closing the window only hides it.".to_owned())
+            })
+            .or_else(|| {
                 state.error.as_ref().map(|error| {
                     language.format(Message::SettingsAgentsFailed, &[("error", error)])
                 })
@@ -246,6 +314,18 @@ impl SettingsPane {
             .child(
                 div().text_sm().font_weight(gpui::FontWeight::MEDIUM).child(agent.display_name()),
             )
+            .when(agent == AgentKind::DeepSeekHarness, |view| {
+                let desktop_status = if state.desktop_running {
+                    "DeepSeek Harness Desktop · Running"
+                } else if state.desktop_installed && state.desktop_profile_initialized {
+                    "DeepSeek Harness Desktop · Installed · Profile ready"
+                } else if state.desktop_installed {
+                    "DeepSeek Harness Desktop · Installed · First launch required"
+                } else {
+                    "DeepSeek Harness Desktop · Not installed"
+                };
+                view.child(div().text_xs().text_color(muted).child(desktop_status))
+            })
             .child(
                 div()
                     .id(("agent-cli-path", index))
@@ -367,6 +447,63 @@ impl SettingsPane {
                     .text_color(muted)
                     .child(language.text(status)),
             )
+            .when(agent == AgentKind::DeepSeekHarness, |view| {
+                let action_disabled = self.agents.loading || self.agents.busy.is_some();
+                view.child(
+                    h_flex()
+                        .flex_shrink_0()
+                        .gap_1()
+                        .when(!state.desktop_installed, |actions| {
+                            actions.child(
+                                Button::new("deepseek-desktop-install")
+                                    .ghost()
+                                    .small()
+                                    .label("Install")
+                                    .disabled(action_disabled)
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        cx.stop_propagation();
+                                        this.deepseek_desktop_action(DeepSeekDesktopAction::Install, cx);
+                                    })),
+                            )
+                        })
+                        .child(
+                            Button::new("deepseek-desktop-refresh")
+                                .ghost()
+                                .small()
+                                .label("Refresh")
+                                .disabled(action_disabled)
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    cx.stop_propagation();
+                                    this.deepseek_desktop_action(DeepSeekDesktopAction::Refresh, cx);
+                                })),
+                        )
+                        .when(state.desktop_installed, |actions| {
+                            actions
+                                .child(
+                                    Button::new("deepseek-desktop-launch")
+                                        .ghost()
+                                        .small()
+                                        .label("Launch")
+                                        .disabled(action_disabled || state.desktop_running)
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            cx.stop_propagation();
+                                            this.deepseek_desktop_action(DeepSeekDesktopAction::Launch, cx);
+                                        })),
+                                )
+                                .child(
+                                    Button::new("deepseek-desktop-uninstall")
+                                        .ghost()
+                                        .small()
+                                        .label("Uninstall")
+                                        .disabled(action_disabled || state.desktop_running)
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            cx.stop_propagation();
+                                            this.deepseek_desktop_action(DeepSeekDesktopAction::Uninstall, cx);
+                                        })),
+                                )
+                        }),
+                )
+            })
             .when(row.hook.is_some(), |view| {
                 view.child(
                     div()
@@ -376,6 +513,10 @@ impl SettingsPane {
                         .flex()
                         .items_center()
                         .justify_center()
+                        .gap_2()
+                        .when(agent == AgentKind::DeepSeekHarness, |view| {
+                            view.child(div().text_xs().text_color(muted).child("Pane Hook"))
+                        })
                         .child(
                             crate::gpui_shell::widgets::NebulaSwitch::new(format!(
                                 "agent-{}",
@@ -397,6 +538,7 @@ impl SettingsPane {
 fn can_toggle(row: &AgentIntegration) -> bool {
     crate::platform::CAPABILITIES.ai_hook_server
         && row.hook.is_some()
+        && (row.agent != AgentKind::DeepSeekHarness || !row.inspection.desktop_running)
         && (row.inspection.installed
             || (row.executable.is_some()
                 && row.inspection.available

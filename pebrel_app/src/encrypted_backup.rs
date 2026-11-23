@@ -258,9 +258,7 @@ fn collect_from(root: &Path, selection: BackupSelection) -> Result<BackupArchive
                 add_file(root, category, "nebula_sync.txt", &mut entries, identity)?
             },
             BackupCategory::Assistant => {
-                for name in ["pebrel_assistant.txt", "ai-habits.md"] {
-                    add_file(root, category, name, &mut entries, identity)?;
-                }
+                add_file(root, category, "nebula_assistant.txt", &mut entries, identity)?
             },
             BackupCategory::Session => {
                 add_file(root, category, "session.json", &mut entries, identity)?
@@ -452,16 +450,6 @@ fn restore_path(root: &Path, name: &str) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-fn valid_ai_memory(bytes: &[u8]) -> bool {
-    if bytes.len() > 16 * 1024 {
-        return false;
-    }
-    std::str::from_utf8(bytes).is_ok_and(|text| {
-        text.chars().count() <= 4_000
-            && text.chars().all(|ch| !ch.is_control() || matches!(ch, '\n' | '\r' | '\t'))
-    })
-}
-
 fn validate_archive(archive: &BackupArchive) -> Result<(), String> {
     if archive.manifest.version != ARCHIVE_VERSION {
         return Err("unsupported backup archive version".to_owned());
@@ -498,10 +486,7 @@ fn validate_archive(archive: &BackupArchive) -> Result<(), String> {
                 entry.name == "ssh_profiles.json" && ssh_is_sanitized(&entry.bytes)
             },
             BackupCategory::Sync => canonical == "pebrel_sync.txt",
-            BackupCategory::Assistant => {
-                canonical == "pebrel_assistant.txt"
-                    || (canonical == "ai-habits.md" && valid_ai_memory(&entry.bytes))
-            },
+            BackupCategory::Assistant => canonical == "pebrel_assistant.txt",
             BackupCategory::Session => entry.name == "session.json",
             BackupCategory::DirectoryHistory => entry.name == "directory_history.json",
             BackupCategory::CommandHistory => {
@@ -607,45 +592,6 @@ mod tests {
         assert_eq!(archive.entries.len(), 1);
         assert_eq!(archive.entries[0].name, "pebrel_settings.txt");
         assert_eq!(archive.entries[0].bytes, b"theme=new");
-    }
-
-    #[test]
-    fn assistant_backup_includes_shared_ai_preferences() {
-        let source = tempdir().unwrap();
-        fs::write(source.path().join("ai-habits.md"), "Prefer concise Chinese answers.")
-            .unwrap();
-        let selection = BackupSelection {
-            appearance: false,
-            assistant: true,
-            ..BackupSelection::default()
-        };
-        let archive = collect_from(source.path(), selection).unwrap();
-        assert_eq!(archive.entries.len(), 1);
-        assert_eq!(archive.entries[0].name, "ai-habits.md");
-
-        let restored = tempdir().unwrap();
-        restore_to(restored.path(), &archive).unwrap();
-        assert_eq!(
-            fs::read_to_string(restored.path().join("ai-habits.md")).unwrap(),
-            "Prefer concise Chinese answers."
-        );
-    }
-
-    #[test]
-    fn assistant_backup_rejects_oversized_shared_preferences() {
-        let archive = BackupArchive {
-            manifest: BackupManifest {
-                version: 1,
-                categories: vec![BackupCategory::Assistant],
-                device: String::new(),
-            },
-            entries: vec![BackupEntry {
-                category: BackupCategory::Assistant,
-                name: "ai-habits.md".into(),
-                bytes: vec![b'x'; 16 * 1024 + 1],
-            }],
-        };
-        assert!(validate_archive(&archive).is_err());
     }
 
     #[test]

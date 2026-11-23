@@ -49,11 +49,36 @@ impl Drop for Slot {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WireProtocol {
+    Responses,
+    ChatCompletions,
+    Messages,
+}
+
+fn wire_protocol(provider: &AiProvider) -> Option<WireProtocol> {
+    if matches!(provider.kind, ProviderKind::Google | ProviderKind::AzureOpenAi) {
+        return None;
+    }
+    if provider.kind == ProviderKind::Anthropic {
+        return Some(WireProtocol::Messages);
+    }
+    match provider.wire_api.trim().to_ascii_lowercase().as_str() {
+        "" | "chat" | "chat_completions" | "chat completions" => {
+            Some(WireProtocol::ChatCompletions)
+        },
+        "responses" => Some(WireProtocol::Responses),
+        "messages" | "claude messages" => {
+            Some(WireProtocol::Messages).filter(|_| provider.kind == ProviderKind::DeepSeek)
+        },
+        _ => None,
+    }
+}
+
 pub fn supported(provider: &AiProvider) -> bool {
     provider.enabled
         && !provider.model.trim().is_empty()
-        && !matches!(provider.kind, ProviderKind::Google | ProviderKind::AzureOpenAi)
-        && matches!(provider.wire_api.as_str(), "" | "responses" | "chat" | "chat_completions")
+        && wire_protocol(provider).is_some()
 }
 
 /// An immutable configuration/credential snapshot owned by the completion service.
@@ -128,7 +153,10 @@ fn request_with_key(
     if key.is_empty() && provider.kind.requires_api_key() {
         return Err(Failure::Unavailable);
     }
-    if !messages.iter().any(|message| message.role == "user" && !message.text.trim().is_empty()) {
+    if !messages
+        .iter()
+        .any(|message| message.role == "user" && !message.text.trim().is_empty())
+    {
         return Err(Failure::Unavailable);
     }
     let (url, body) =
@@ -147,11 +175,14 @@ fn request_with_key(
                 .is_ok_and(|ip| ip.is_loopback())
     });
     let client = if local { &*LOCAL_CLIENT } else { &*CLIENT };
+    let protocol = wire_protocol(provider).ok_or(Failure::Unavailable)?;
     let mut request = client.post(&url);
     let bearer = Zeroizing::new(format!("Bearer {key}"));
-    request = match provider.kind {
-        ProviderKind::Anthropic => {
-            request.header("x-api-key", key).header("anthropic-version", "2023-06-01")
+    request = match protocol {
+        WireProtocol::Messages => {
+            request
+                .header("x-api-key", key)
+                .header("anthropic-version", "2023-06-01")
         },
         _ if key.is_empty() => request,
         _ => request.header("Authorization", bearer.as_str()),
@@ -174,8 +205,8 @@ fn request_with_key(
 }
 
 fn response_text(provider: &AiProvider, value: &Value) -> Option<String> {
-    match provider.kind {
-        ProviderKind::Anthropic => {
+    match wire_protocol(provider)? {
+        WireProtocol::Messages => {
             if value["stop_reason"] != "end_turn" {
                 return None;
             }
@@ -184,7 +215,7 @@ fn response_text(provider: &AiProvider, value: &Value) -> Option<String> {
             let result = text.next()?["text"].as_str()?.to_owned();
             text.next().is_none().then_some(result)
         },
-        _ if provider.wire_api == "responses" => {
+        WireProtocol::Responses => {
             if value["status"] != "completed" {
                 return None;
             }
@@ -200,7 +231,7 @@ fn response_text(provider: &AiProvider, value: &Value) -> Option<String> {
             }
             Some(content[0]["text"].as_str()?.to_owned())
         },
-        _ => {
+        WireProtocol::ChatCompletions => {
             let choices = value["choices"].as_array()?;
             if choices.len() != 1
                 || choices[0]["finish_reason"] != "stop"
@@ -243,33 +274,68 @@ fn payload(
         || provider.model.starts_with("gpt-6")
         || provider.model.starts_with("o3")
         || provider.model.starts_with("o4");
-    let (route, mut body) = if provider.kind == ProviderKind::Anthropic {
-        (
-            "messages",
-            json!({"model":provider.model,"max_tokens":512,"system":locale,
-            "messages":input}),
-        )
-    } else if provider.wire_api == "responses" {
-        (
-            "responses",
-            json!({"model":provider.model,"store":false,"max_output_tokens":512,
-            "instructions":locale,"input":input}),
-        )
+    let protocol = wire_protocol(provider)?;
+    let base = provider.base_url.trim().trim_end_matches('/');
+    let messages_route = if provider.kind == ProviderKind::DeepSeek {
+        if base.ends_with("/anthropic/v1") {
+            "messages"
+        } else if base.ends_with("/anthropic") {
+            "v1/messages"
+        } else {
+            "anthropic/v1/messages"
+        }
     } else {
-        input.insert(0, json!({"role":"system", "content":locale}));
-        let mut body = json!({"model":provider.model, "messages":input});
-        body[if reasoning_model { "max_completion_tokens" } else { "max_tokens" }] = json!(512);
-        ("chat/completions", body)
+        "messages"
     };
-    if reasoning_model && provider.kind != ProviderKind::Anthropic {
-        if provider.wire_api == "responses" {
+    let (route, mut body) = match protocol {
+        WireProtocol::Messages => {
+            let mut body = json!({
+                "model":provider.model,
+                "max_tokens":512,
+                "system":locale,
+                "messages":input
+            });
+            if provider.kind == ProviderKind::DeepSeek {
+                body["reasoning"] = json!({"effort":"none"});
+            }
+            (messages_route, body)
+        },
+        WireProtocol::Responses => {
+            let mut body = json!({
+                "model":provider.model,
+                "store":false,
+                "max_output_tokens":512,
+                "instructions":locale,
+                "input":input
+            });
+            if provider.kind == ProviderKind::DeepSeek {
+                body["reasoning"] = json!({"effort":"none"});
+            }
+            ("responses", body)
+        },
+        WireProtocol::ChatCompletions => {
+            input.insert(0, json!({"role":"system", "content":locale}));
+            let mut body = json!({"model":provider.model, "messages":input});
+            body[if reasoning_model { "max_completion_tokens" } else { "max_tokens" }] =
+                json!(512);
+            if provider.kind == ProviderKind::DeepSeek {
+                body["thinking"] = json!({"type":"disabled"});
+            }
+            ("chat/completions", body)
+        },
+    };
+    if reasoning_model && protocol != WireProtocol::Messages {
+        if protocol == WireProtocol::Responses {
             body["reasoning"] = json!({"effort":"low"});
         } else {
             body["reasoning_effort"] = json!("low");
         }
     }
-    let base = provider.base_url.trim().trim_end_matches('/');
-    let url = if provider.full_url { base.to_owned() } else { format!("{base}/{route}") };
+    let url = if provider.full_url {
+        base.to_owned()
+    } else {
+        format!("{base}/{route}")
+    };
     Some((url, body))
 }
 

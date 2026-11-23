@@ -454,14 +454,20 @@ fn ordinary_idle_reminders_are_not_blocking_requests() {
         "permission_granted",
         "approval_complete",
     ] {
-        let wire = format!(
-            "nebula-hook/1 source=claude\n{{\"hook_event_name\":\"Notification\",\"notification_type\":\"{kind}\"}}"
-        );
+        let payload = serde_json::json!({
+            "hook_event_name": "Notification",
+            "notification_type": kind
+        });
+        let wire = format!("nebula-hook/1 source=claude\n{payload}");
         assert!(parse_remote_envelope(wire.as_bytes(), Some(1)).is_none());
     }
     assert_eq!(event("claude", "s", "PermissionRequest").kind, AiHookKind::NeedsAttention);
-    let question = b"nebula-hook/1 source=claude\n{\"hook_event_name\":\"Notification\",\"notification_type\":\"elicitation_dialog\"}";
-    assert_eq!(parse_remote_envelope(question, Some(1)).unwrap().kind, AiHookKind::NeedsAttention);
+    let payload = serde_json::json!({
+        "hook_event_name": "Notification",
+        "notification_type": "elicitation_dialog"
+    });
+    let question = format!("nebula-hook/1 source=claude\n{payload}");
+    assert_eq!(parse_remote_envelope(question.as_bytes(), Some(1)).unwrap().kind, AiHookKind::NeedsAttention);
 }
 
 #[test]

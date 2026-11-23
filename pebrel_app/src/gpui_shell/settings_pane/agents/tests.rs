@@ -208,6 +208,33 @@ fn hermes_detection_row_does_not_offer_or_submit_a_hook_toggle(cx: &mut TestAppC
     }
 }
 
+#[test]
+fn deepseek_hook_toggle_requires_a_ready_desktop_profile_and_quit_application() {
+    if !crate::platform::CAPABILITIES.ai_hook_server {
+        return;
+    }
+    let mut row = AgentIntegration {
+        agent: AgentKind::DeepSeekHarness,
+        executable: Some("C:/Program Files/DeepSeek Harness/DeepSeek Harness.exe".into()),
+        hook: Some(pebrel_settings::AgentHook::DeepSeekHarness),
+        inspection: HookInspection {
+            desktop_installed: true,
+            desktop_profile_initialized: false,
+            available: false,
+            helper_missing: false,
+            ..Default::default()
+        },
+    };
+    assert!(!can_toggle(&row), "profile must be initialized by a first Desktop launch");
+
+    row.inspection.desktop_profile_initialized = true;
+    row.inspection.available = true;
+    assert!(can_toggle(&row), "an initialized, stopped Desktop can install its bridge");
+
+    row.inspection.desktop_running = true;
+    assert!(!can_toggle(&row), "upstream requires Desktop to be fully quit for plugin changes");
+}
+
 #[gpui::test]
 fn repeated_switches_follow_completed_state_and_ignore_inflight_clicks(cx: &mut TestAppContext) {
     if !crate::platform::CAPABILITIES.ai_hook_server {

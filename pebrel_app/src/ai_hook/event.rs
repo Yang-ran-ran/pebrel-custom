@@ -96,6 +96,16 @@ pub fn capabilities_for(source: &str) -> AiHookCapabilities {
             bridge_sequence: false,
             serialized_delivery: false,
         },
+        "deepseek-harness" => AiHookCapabilities {
+            lifecycle: true,
+            // The current Harness bridge subscribes to user/message, tool/result
+            // and turn/end only; it does not claim permission or attention events.
+            attention_events: false,
+            attention_context: false,
+            background_tasks: false,
+            bridge_sequence: true,
+            serialized_delivery: true,
+        },
         "kimi" | "copilot" | "grok" => AiHookCapabilities {
             lifecycle: true,
             attention_events: true,

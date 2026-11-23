@@ -34,7 +34,6 @@ to rename all existing directories or create abstract interfaces everywhere.
 | `pebrel_app/src/serial_session.rs` | Native serial port transport for non-PTY panes and the `serial:` destination syntax | SSH authentication, remote files or a settings form |
 | `pebrel_app/src/ssh_session/integration.rs` | Authenticated exec/PTY orchestration for remote hook installation and shell startup | Provider policy or a second Agent state machine |
 | `pebrel_app/src/ai_agents` | Agent identity and structurally constrained screen observations | Authority to overwrite hook results or infer remote completion from silence |
-| `pebrel_app/src/ai_memory.rs` | User-authored AI preferences shared by built-in inference surfaces; bounded private persistence | Automatic collection of document bodies or provider credentials |
 | `pebrel_app/src/gpui_shell` | GPUI views, UI state, commands and subscriptions | A second settings/domain implementation |
 | `pebrel_app/src/product_ui` | Feature-selected shared presentation facade | A route to legacy rendering dependencies |
 | `pebrel_app/src/display`, `renderer` | Legacy rendering and still-shared extracted models | A source of new undifferentiated functionality |

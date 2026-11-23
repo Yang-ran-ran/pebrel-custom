@@ -8,15 +8,10 @@ use pebrel_settings::PromptSuggestions;
 pub(super) struct PredictionSettingsUi {
     provider_id: String,
     model: Entity<InputState>,
-    shared_memory: Entity<InputState>,
-    saved_memory: String,
-    memory_error: Option<String>,
-    memory_saved: bool,
     error: Option<Message>,
     save_error: Option<String>,
     saved: bool,
     _subscription: Subscription,
-    _memory_subscription: Subscription,
 }
 
 fn available(provider: &AiProvider) -> bool {
@@ -46,34 +41,13 @@ impl SettingsPane {
                 cx.notify();
             }
         });
-        let saved_memory = crate::ai_memory::load();
-        let shared_memory = cx.new(|cx| {
-            InputState::new(window, cx).multi_line(true).default_value(saved_memory.clone())
-        });
-        let memory_subscription = cx.subscribe(
-            &shared_memory,
-            |this: &mut Self, _, event: &InputEvent, cx| {
-                if matches!(event, InputEvent::Change) {
-                    if let Some(ui) = this.provider_ui.predictions.as_mut() {
-                        ui.memory_error = None;
-                        ui.memory_saved = false;
-                    }
-                    cx.notify();
-                }
-            },
-        );
         self.provider_ui.predictions = Some(PredictionSettingsUi {
             provider_id: settings.provider_id.clone(),
             model,
-            shared_memory,
-            saved_memory,
-            memory_error: None,
-            memory_saved: false,
             error: None,
             save_error: None,
             saved: false,
             _subscription: subscription,
-            _memory_subscription: memory_subscription,
         });
     }
 
@@ -107,23 +81,6 @@ impl SettingsPane {
         ui.error = None;
         ui.save_error = result.as_ref().err().map(ToString::to_string);
         ui.saved = result.is_ok();
-        cx.notify();
-    }
-
-    fn save_shared_memory(&mut self, cx: &mut Context<Self>) {
-        let Some(ui) = self.provider_ui.predictions.as_ref() else { return };
-        let value = ui.shared_memory.read(cx).value().to_string();
-        let result = crate::ai_memory::save(&value);
-        let ui = self.provider_ui.predictions.as_mut().unwrap();
-        match result {
-            Ok(()) => {
-                ui.saved_memory = value;
-                ui.memory_error = None;
-                ui.memory_saved = true;
-                crate::prompt_suggestions::service::invalidate_config();
-            },
-            Err(error) => ui.memory_error = Some(error.to_string()),
-        }
         cx.notify();
     }
 
@@ -195,8 +152,6 @@ impl SettingsPane {
             });
         let enabled = self.runtime.prompt_suggestions.enabled;
         let model = ui.model.read(cx).value();
-        let shared_memory = ui.shared_memory.read(cx).value();
-        let memory_dirty = shared_memory.trim() != ui.saved_memory.trim();
         let draft = PromptSuggestions {
             enabled,
             provider_id: ui.provider_id.clone(),
@@ -290,68 +245,6 @@ impl SettingsPane {
                             .on_click(cx.listener(move |this, _, _, cx| {
                                 this.save_prediction_settings(enabled, cx);
                             })),
-                    ),
-            )
-            .child(
-                v_flex()
-                    .w_full()
-                    .mt_4()
-                    .gap_2()
-                    .child(
-                        div()
-                            .text_size(px(13.0))
-                            .font_semibold()
-                            .child(language.text(Message::PromptSuggestionsSharedMemoryTitle)),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(11.0))
-                            .text_color(cx.theme().muted_foreground)
-                            .child(language.text(Message::PromptSuggestionsSharedMemoryDescription)),
-                    )
-                    .child(Input::new(&ui.shared_memory).h(px(104.0)))
-                    .child(
-                        h_flex()
-                            .w_full()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                Button::new("ai-shared-memory-save")
-                                    .label(language.text(Message::CommonSave))
-                                    .h(px(32.0))
-                                    .disabled(!memory_dirty)
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.save_shared_memory(cx);
-                                    })),
-                            )
-                            .when(memory_dirty, |row| {
-                                row.child(
-                                    div()
-                                        .text_size(px(11.0))
-                                        .text_color(cx.theme().muted_foreground)
-                                        .child(language.text(
-                                            Message::PromptSuggestionsSharedMemoryUnsaved,
-                                        )),
-                                )
-                            })
-                            .when(ui.memory_saved && !memory_dirty, |row| {
-                                row.child(
-                                    div()
-                                        .text_size(px(11.0))
-                                        .text_color(cx.theme().muted_foreground)
-                                        .child(language.text(
-                                            Message::PromptSuggestionsSharedMemorySaved,
-                                        )),
-                                )
-                            })
-                            .when_some(ui.memory_error.as_ref(), |row, error| {
-                                row.child(
-                                    div()
-                                        .text_size(px(11.0))
-                                        .text_color(cx.theme().danger)
-                                        .child(error.clone()),
-                                )
-                            }),
                     ),
             )
             .when_some(status, |view, (text, error)| {
