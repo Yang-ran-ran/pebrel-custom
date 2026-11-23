@@ -7,16 +7,15 @@
 //!
 //! ## 分屏 pane 生命周期合同
 //!
-//! - 每个 Terminal tab 持有 `panes`（实体属主）+ `tree`（`pebrel_split`
-//!   布局树，叶 = pane id）+ `focused`。不变式：panes 的 id 集合 == 树的
-//!   叶集合。
-//! - 关一个 pane：`tree.remove_leaf` 裁定结局——`WasRoot` 关整个 tab；
-//!   `Collapsed(id)` 由兄弟子树收编空间、焦点交给其首叶。被摘 pane 立即
-//!   显式 `shutdown`，实体随 `panes` 移除而释放，`Drop` 兜底。
+//! - 每个 Terminal tab 持有 `panes`（实体属主）+ `tree`（`pebrel_split` 布局树，叶 = pane id）+
+//!   `focused`。不变式：panes 的 id 集合 == 树的 叶集合。
+//! - 关一个 pane：`tree.remove_leaf` 裁定结局——`WasRoot` 关整个 tab； `Collapsed(id)`
+//!   由兄弟子树收编空间、焦点交给其首叶。被摘 pane 立即 显式 `shutdown`，实体随 `panes`
+//!   移除而释放，`Drop` 兜底。
 //! - 关整个 tab（侧栏 ×、最后 pane 退出）：逐 pane `shutdown`。
-//! - PTY 尺寸：pane 矩形由布局树裁定，`TerminalElement` prepaint 回写
-//!   `set_layout`，resize 合并/提交合同（burst + settle）原样生效——分屏
-//!   拖拽期间 PTY 跟随提交比例，松手后一次落定，与旧壳语义一致。
+//! - PTY 尺寸：pane 矩形由布局树裁定，`TerminalElement` prepaint 回写 `set_layout`，resize
+//!   合并/提交合同（burst + settle）原样生效——分屏 拖拽期间 PTY
+//!   跟随提交比例，松手后一次落定，与旧壳语义一致。
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -113,42 +112,39 @@ use tab_drag::{DockTarget, TabDrag, TabDragAxis};
 use agents::{ai_hook_target_pane, ai_hook_target_pane_for_cwd};
 use agents::{ai_session_palette_rows, restored_agent_command};
 
-gpui::actions!(
-    nebula_workspace,
-    [
-        NewTerminal,
-        NewWindow,
-        CloseActiveTerminal,
-        ToggleSidebar,
-        OpenSettings,
-        ToggleCommandPalette,
-        CloseCommandPalette,
-        ToggleShellPicker,
-        CommandPaletteUp,
-        CommandPaletteDown,
-        ToggleFileTree,
-        ToggleGitPanel,
-        SplitRight,
-        SplitDown,
-        RenameActiveTab,
-        ToggleZoom,
-        FocusPaneLeft,
-        FocusPaneRight,
-        FocusPaneUp,
-        FocusPaneDown,
-        SelectNextTab,
-        SelectPreviousTab,
-        MoveTabLeft,
-        MoveTabRight,
-        IncreaseFontSize,
-        DecreaseFontSize,
-        ResetFontSize,
-        CopySelection,
-        PasteClipboard,
-        ToggleFullscreen,
-        OpenQuickJump
-    ]
-);
+gpui::actions!(nebula_workspace, [
+    NewTerminal,
+    NewWindow,
+    CloseActiveTerminal,
+    ToggleSidebar,
+    OpenSettings,
+    ToggleCommandPalette,
+    CloseCommandPalette,
+    ToggleShellPicker,
+    CommandPaletteUp,
+    CommandPaletteDown,
+    ToggleFileTree,
+    ToggleGitPanel,
+    SplitRight,
+    SplitDown,
+    RenameActiveTab,
+    ToggleZoom,
+    FocusPaneLeft,
+    FocusPaneRight,
+    FocusPaneUp,
+    FocusPaneDown,
+    SelectNextTab,
+    SelectPreviousTab,
+    MoveTabLeft,
+    MoveTabRight,
+    IncreaseFontSize,
+    DecreaseFontSize,
+    ResetFontSize,
+    CopySelection,
+    PasteClipboard,
+    ToggleFullscreen,
+    OpenQuickJump
+]);
 
 /// 命令面板 / Shell 选择器罩层的 keymap context。Esc 必须挂在这里，
 /// 不能挂全局：否则 CC/Codex 的终止对话键到不了 PTY。
@@ -1186,11 +1182,11 @@ impl NebulaWorkspace {
         };
         let position = pebrel_settings::RuntimeSettings::load().new_tab_position;
         let at = new_tab_insert_index(position, self.active, self.tabs.len());
-        self.insert_tab_at(
-            at,
-            tab,
-            TabMeta { shell_tag, launch: Some(launch_session), ..TabMeta::default() },
-        );
+        self.insert_tab_at(at, tab, TabMeta {
+            shell_tag,
+            launch: Some(launch_session),
+            ..TabMeta::default()
+        });
         self.active = at;
         self.reveal_active_tab();
         self.focus_active(window, cx);

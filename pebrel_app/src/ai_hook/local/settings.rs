@@ -287,7 +287,7 @@ pub(super) fn apply(agent: AgentHook, enabled: bool) -> io::Result<()> {
                 .ok_or_else(|| io::Error::other("Antigravity configuration unavailable"))?;
             antigravity::apply_at(&path, &helper_command().unwrap_or_default(), enabled)?;
         },
-        (_, _) => extended::apply(agent, &helper_command().unwrap_or_default(), enabled)?,
+        (..) => extended::apply(agent, &helper_command().unwrap_or_default(), enabled)?,
     }
     Ok(())
 }

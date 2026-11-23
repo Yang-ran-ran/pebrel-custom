@@ -343,7 +343,7 @@ impl TextFileView {
                     (true, "file-info", Message::EditorInfo),
                 ]
                 .into_iter()
-                .filter(|(info, _, _)| *info || self.markdown)
+                .filter(|(info, ..)| *info || self.markdown)
                 .map(|(info, id, label)| {
                     div()
                         .debug_selector(move || id.to_owned())

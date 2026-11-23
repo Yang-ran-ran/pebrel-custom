@@ -409,10 +409,10 @@ impl SettingsPane {
                     window,
                     cx,
                     super::toast::ToastKind::Warning,
-                    language.format(
-                        crate::i18n::Message::SettingsStartupSaveFailed,
-                        &[("error", &error.to_string())],
-                    ),
+                    language.format(crate::i18n::Message::SettingsStartupSaveFailed, &[(
+                        "error",
+                        &error.to_string(),
+                    )]),
                 );
             }
             cx.notify();
@@ -713,7 +713,7 @@ impl SettingsPane {
     }
 
     pub(super) fn select_of(&self, key: &str) -> Option<SharedSelect> {
-        self.selects.iter().find(|(k, _, _)| *k == key).map(|(_, entity, _)| entity.clone())
+        self.selects.iter().find(|(k, ..)| *k == key).map(|(_, entity, _)| entity.clone())
     }
 
     /// 从代码侧改掉某项设置后，把闭框的选中项拉回新值。
@@ -726,7 +726,7 @@ impl SettingsPane {
     /// 值不在 `values` 里（光标形状的"未设置"写空串）时落到第 0 项，与
     /// `add_select` 建初始索引时的同一条回落规则一致。
     fn sync_select(&mut self, key: &str, value: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some((_, select, values)) = self.selects.iter().find(|(k, _, _)| *k == key) else {
+        let Some((_, select, values)) = self.selects.iter().find(|(k, ..)| *k == key) else {
             return;
         };
         let row = values.iter().position(|candidate| *candidate == value).unwrap_or(0);
@@ -1099,11 +1099,13 @@ impl SettingsPane {
                         )
                         .child(Slider::new(state)),
                 )
-                .child(div()
+                .child(
+                    div()
                         .w(px(48.0))
                         .flex_shrink_0()
                         // 固定数值列宽，百分比位数变化时轨道不会左右跳动。
-                        .child(display)),
+                        .child(display),
+                ),
             cx,
         )
     }
@@ -1663,46 +1665,48 @@ impl SettingsPane {
                 continue;
             }
             let active = ix == self.active_section;
-            items = items.child(
-                div()
-                    .id(("settings-nav", ix))
-                    .debug_selector(move || format!("settings-nav-{ix}"))
-                    .px(px(10.0))
-                    .ml_1()
-                    .mr_1()
-                    .h(px(SETTINGS_NAV_ROW_HEIGHT))
-                    .flex()
-                    .items_center()
-                    .gap(px(10.0))
-                    .rounded_md()
-                    .cursor_pointer()
-                    // 选中态同时改变底色、墨色和字重，余光扫过也能确认当前位置。
-                    .font_weight(if active {
-                        gpui::FontWeight::MEDIUM
-                    } else {
-                        gpui::FontWeight::NORMAL
-                    })
-                    .when_some(glass, |item, glass| {
-                        if active { glass.apply(item) } else { glass.reserve(item) }
-                    })
-                    .when(active, |item| {
-                        item.text_color(active_fg).when(glass.is_none(), |item| item.bg(active_bg))
-                    })
-                    .when(!active, |item| item.text_color(muted).hover(|s| s.bg(hover_bg)))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.active_section = ix;
-                        this.about_sponsor_open = false;
-                        cx.notify();
-                    }))
-                    .child(
-                        Icon::default()
-                            .path(section_icon(ix))
-                            .size(px(SETTINGS_NAV_ICON_SIZE))
-                            .flex_shrink_0()
-                            .text_color(if active { active_icon } else { muted }),
-                    )
-                    .child(section_label(ix, language)),
-            );
+            items =
+                items.child(
+                    div()
+                        .id(("settings-nav", ix))
+                        .debug_selector(move || format!("settings-nav-{ix}"))
+                        .px(px(10.0))
+                        .ml_1()
+                        .mr_1()
+                        .h(px(SETTINGS_NAV_ROW_HEIGHT))
+                        .flex()
+                        .items_center()
+                        .gap(px(10.0))
+                        .rounded_md()
+                        .cursor_pointer()
+                        // 选中态同时改变底色、墨色和字重，余光扫过也能确认当前位置。
+                        .font_weight(if active {
+                            gpui::FontWeight::MEDIUM
+                        } else {
+                            gpui::FontWeight::NORMAL
+                        })
+                        .when_some(glass, |item, glass| {
+                            if active { glass.apply(item) } else { glass.reserve(item) }
+                        })
+                        .when(active, |item| {
+                            item.text_color(active_fg)
+                                .when(glass.is_none(), |item| item.bg(active_bg))
+                        })
+                        .when(!active, |item| item.text_color(muted).hover(|s| s.bg(hover_bg)))
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.active_section = ix;
+                            this.about_sponsor_open = false;
+                            cx.notify();
+                        }))
+                        .child(
+                            Icon::default()
+                                .path(section_icon(ix))
+                                .size(px(SETTINGS_NAV_ICON_SIZE))
+                                .flex_shrink_0()
+                                .text_color(if active { active_icon } else { muted }),
+                        )
+                        .child(section_label(ix, language)),
+                );
         }
         nav.child(div().flex_1().min_h_0().overflow_y_scrollbar().child(items))
             .child(
@@ -1765,9 +1769,12 @@ impl Render for SettingsPane {
                         this.set_wallpaper_peek(false, cx);
                     }
                 }))
-                .on_mouse_up_out(MouseButton::Left, cx.listener(|this, _, _, cx| {
-                    this.set_wallpaper_peek(false, cx);
-                }))
+                .on_mouse_up_out(
+                    MouseButton::Left,
+                    cx.listener(|this, _, _, cx| {
+                        this.set_wallpaper_peek(false, cx);
+                    }),
+                )
             })
             // 旧壳 `input/chrome.rs` 的合同是页面任何左键先撤销捕获。
             // 行自身会 stop_propagation 并完成「同行取消 / 他行转移」；其它
@@ -1790,8 +1797,7 @@ impl Render for SettingsPane {
                         if this.keymap_capture.is_none() {
                             return;
                         }
-                        let prefix =
-                            crate::display::keymap::gpui_mods_prefix(&event.modifiers);
+                        let prefix = crate::display::keymap::gpui_mods_prefix(&event.modifiers);
                         if this.keymap_capture_preview != prefix {
                             this.keymap_capture_preview = prefix;
                             cx.notify();
@@ -1814,15 +1820,15 @@ impl Render for SettingsPane {
                     .min_w_0()
                     .h_full()
                     .debug_selector(|| "settings-content".to_owned())
-                    .when(has_cards, |pane| pane.bg(crate::gpui_shell::theme::settings_canvas_tint(cx)))
+                    .when(has_cards, |pane| {
+                        pane.bg(crate::gpui_shell::theme::settings_canvas_tint(cx))
+                    })
                     .opacity(if peeking { 0.16 } else { 1.0 })
                     .child(
                         v_flex()
                             .flex_1()
                             .min_h_0()
-                            .when(!form_page, |content| {
-                                content.px_5().pt(px(20.0)).pb(px(22.0))
-                            })
+                            .when(!form_page, |content| content.px_5().pt(px(20.0)).pb(px(22.0)))
                             .when(!form_page && !application_page, |content| {
                                 content.pt(px(28.0)).pb(px(30.0))
                             })
@@ -1841,15 +1847,22 @@ impl Render for SettingsPane {
                                             .debug_selector(|| "settings-content-column".into())
                                             .w_full()
                                             .when(form_page, |content| {
-                                                content.max_w(px(design::CONTENT_MAX_WIDTH))
+                                                content
+                                                    .max_w(px(design::CONTENT_MAX_WIDTH))
                                                     .px(px(design::CONTENT_PAD_X))
                                                     .pt(px(design::CONTENT_PAD_TOP))
                                                     .pb(px(design::CONTENT_PAD_BOTTOM))
                                             })
-                                            .when(matches!(self.active_section, 4 | 9 | 10 | MOBILE_SECTION | PLUGINS_SECTION), |content| {
-                                                content.items_center()
+                                            .when(
+                                                matches!(
+                                                    self.active_section,
+                                                    4 | 9 | 10 | MOBILE_SECTION | PLUGINS_SECTION
+                                                ),
+                                                |content| content.items_center(),
+                                            )
+                                            .when(application_page, |content| {
+                                                content.max_w(px(960.0))
                                             })
-                                            .when(application_page, |content| content.max_w(px(960.0)))
                                             .child(content),
                                     ),
                             ),
@@ -1867,14 +1880,12 @@ impl Render for SettingsPane {
                 root
                     // 搜索框是当前焦点时 Escape 仍沿元素树冒泡到设置根；
                     // 这里只接管弹层生命周期，不干扰其它设置输入。
-                    .on_key_down(cx.listener(
-                        |this, event: &KeyDownEvent, window, cx| {
-                            if event.keystroke.key.eq_ignore_ascii_case("escape") {
-                                cx.stop_propagation();
-                                this.close_font_picker(window, true, cx);
-                            }
-                        },
-                    ))
+                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                        if event.keystroke.key.eq_ignore_ascii_case("escape") {
+                            cx.stop_propagation();
+                            this.close_font_picker(window, true, cx);
+                        }
+                    }))
                     // 旧壳的“第一击只关闭浮层”合同：透明层覆盖设置页其余
                     // 控件并吃掉 mouse-down；字体面板自身通过 deferred
                     // priority=2 绘制在该层之上，内部搜索/滚动/点击照常工作。
@@ -1904,11 +1915,9 @@ impl Render for SettingsPane {
                     }
                 }))
                 .when(bg_dragging, |root| {
-                    root.on_mouse_move(cx.listener(
-                        |this, event: &MouseMoveEvent, window, cx| {
-                            this.on_bg_picker_move(event, window, cx);
-                        },
-                    ))
+                    root.on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, window, cx| {
+                        this.on_bg_picker_move(event, window, cx);
+                    }))
                     .on_mouse_up(
                         MouseButton::Left,
                         cx.listener(|this, _, _, cx| {

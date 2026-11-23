@@ -251,10 +251,10 @@ impl AnswerReader {
 
     fn notice(&self, language: UiLanguage) -> Option<String> {
         if self.images_omitted > 0 {
-            Some(language.format(
-                Message::ReaderImagesOmitted,
-                &[("count", &self.images_omitted.to_string())],
-            ))
+            Some(language.format(Message::ReaderImagesOmitted, &[(
+                "count",
+                &self.images_omitted.to_string(),
+            )]))
         } else {
             self.snapshot.content.notice(language)
         }
@@ -532,10 +532,10 @@ impl Render for AnswerReader {
                                         cx.open_url(&url);
                                         return;
                                     },
-                                    None => language.format(
-                                        crate::i18n::Message::CommonLinkUnrecognized,
-                                        &[("target", &url)],
-                                    ),
+                                    None => language
+                                        .format(crate::i18n::Message::CommonLinkUnrecognized, &[(
+                                            "target", &url,
+                                        )]),
                                 };
                                 crate::gpui_shell::toast::toast(
                                     window,

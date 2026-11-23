@@ -509,30 +509,26 @@ fn ctrl_wheel_font_zoom_setting_is_searchable_and_has_a_visible_switch(
 #[test]
 fn settings_nav_hides_providers_without_changing_stable_routes() {
     let visibility: Vec<_> = (0..SECTION_IDS.len()).map(is_nav_section_visible).collect();
-    assert_eq!(
-        visibility,
-        vec![true, true, true, false, true, true, true, true, true, true, true, true, true]
-    );
+    assert_eq!(visibility, vec![
+        true, true, true, false, true, true, true, true, true, true, true, true, true
+    ]);
     assert!(!is_nav_section_visible(SECTION_IDS.len()));
     assert!(!is_nav_section_visible(usize::MAX));
-    assert_eq!(
-        SECTION_IDS,
-        [
-            "application",
-            "appearance",
-            "profiles",
-            "providers",
-            "ssh",
-            "network",
-            "interaction",
-            "keymap",
-            "advanced",
-            "backup",
-            "agents",
-            "mobile",
-            "plugins",
-        ]
-    );
+    assert_eq!(SECTION_IDS, [
+        "application",
+        "appearance",
+        "profiles",
+        "providers",
+        "ssh",
+        "network",
+        "interaction",
+        "keymap",
+        "advanced",
+        "backup",
+        "agents",
+        "mobile",
+        "plugins",
+    ]);
 }
 
 #[cfg(feature = "gpui-test-support")]
@@ -582,44 +578,38 @@ fn settings_nav_starts_with_application_then_frequent_options() {
         .iter()
         .map(|index| section_label(*index, crate::display::UiLanguage::ZhCn))
         .collect();
-    assert_eq!(
-        zh_labels,
-        vec![
-            "应用",
-            "外观",
-            "终端",
-            "Agents",
-            "插件",
-            "交互",
-            "按键映射",
-            "SSH",
-            "网络",
-            "手机远程",
-            "高级",
-            "备份"
-        ]
-    );
+    assert_eq!(zh_labels, vec![
+        "应用",
+        "外观",
+        "终端",
+        "Agents",
+        "插件",
+        "交互",
+        "按键映射",
+        "SSH",
+        "网络",
+        "手机远程",
+        "高级",
+        "备份"
+    ]);
     let en_labels: Vec<_> = visible
         .iter()
         .map(|index| section_label(*index, crate::display::UiLanguage::EnUs))
         .collect();
-    assert_eq!(
-        en_labels,
-        vec![
-            "Application",
-            "Appearance",
-            "Terminal",
-            "Agents",
-            "Plugins",
-            "Interaction",
-            "Key Bindings",
-            "SSH",
-            "Network",
-            "Phone Remote",
-            "Advanced",
-            "Backup",
-        ]
-    );
+    assert_eq!(en_labels, vec![
+        "Application",
+        "Appearance",
+        "Terminal",
+        "Agents",
+        "Plugins",
+        "Interaction",
+        "Key Bindings",
+        "SSH",
+        "Network",
+        "Phone Remote",
+        "Advanced",
+        "Backup",
+    ]);
 }
 
 #[test]

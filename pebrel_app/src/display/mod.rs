@@ -942,8 +942,8 @@ pub struct Display {
     nebula_tab_flashing: Vec<bool>,
     /// Per-tab real AI brand logo, textured over the icon slot.
     nebula_tab_logos: Vec<Option<AiLogo>>,
-    /// Decoded (and, where appropriate, theme-tinted) logo pixels with stable renderer texture ids,
-    /// keyed by (logo, ink, target physical size). Decode, tint and high-quality
+    /// Decoded (and, where appropriate, theme-tinted) logo pixels with stable renderer texture
+    /// ids, keyed by (logo, ink, target physical size). Decode, tint and high-quality
     /// downsampling run once per key.
     nebula_ai_logo_cache: std::collections::HashMap<
         (AiLogo, [u8; 3], u32),
@@ -2914,7 +2914,7 @@ impl Display {
             resume_ai: self.nebula_resume_ai,
             tray: self.nebula_tray,
             opacity: self.nebula_window_opacity,
-            dragging_opacity: self.nebula_settings_opacity_drag.map(|(target, _, _)| target),
+            dragging_opacity: self.nebula_settings_opacity_drag.map(|(target, ..)| target),
             cursor_shape: self.nebula_cursor_shape,
             cursor_blink: self.nebula_cursor_blink,
             copy_on_select: self.nebula_copy_on_select,
@@ -5723,10 +5723,10 @@ impl Display {
             });
             if let Some(command) = session.fork_command() {
                 rows.push(command_palette::AiSessionRow {
-                    label: language.format(
-                        crate::i18n::Message::WorkspaceForkLabel,
-                        &[("title", &session.title)],
-                    ),
+                    label: language.format(crate::i18n::Message::WorkspaceForkLabel, &[(
+                        "title",
+                        &session.title,
+                    )]),
                     hint,
                     search: format!("分叉 fork {search}"),
                     command,
@@ -6696,9 +6696,9 @@ impl Display {
 
     /// Auto-save an SSH destination the user typed and successfully connected
     /// to — armed at OSC 133;C, confirmed by a remote `NEBULA|` title or a
-    /// session that outlived [`crate::ssh::SAVE_MIN_SESSION`]. Recents: most recent first, deduped, capped. An already-listed host
-    /// only refreshes its recency (for the next launch) — the visible list
-    /// never jumps while the user is looking at it.
+    /// session that outlived [`crate::ssh::SAVE_MIN_SESSION`]. Recents: most recent first, deduped,
+    /// capped. An already-listed host only refreshes its recency (for the next launch) — the
+    /// visible list never jumps while the user is looking at it.
     pub fn nebula_save_ssh_host(&mut self, host: &str) {
         const SAVED_HOSTS_CAP: usize = 20;
         if host.is_empty() {
@@ -10463,14 +10463,14 @@ mod nebula_ux_tests {
         let bottom =
             SizeInfo::new_fully_asymmetric(1000.0, 700.0, 10.0, 20.0, 100.0, 20.0, 384.0, 20.0);
 
-        assert_eq!(
-            alt_screen_vertical_padding_bands(&window, &top, 56.0, 636.0),
-            [Some((56.0, 24.0)), Some((360.0, 16.0))]
-        );
-        assert_eq!(
-            alt_screen_vertical_padding_bands(&window, &bottom, 56.0, 636.0),
-            [None, Some((664.0, 28.0))]
-        );
+        assert_eq!(alt_screen_vertical_padding_bands(&window, &top, 56.0, 636.0), [
+            Some((56.0, 24.0)),
+            Some((360.0, 16.0))
+        ]);
+        assert_eq!(alt_screen_vertical_padding_bands(&window, &bottom, 56.0, 636.0), [
+            None,
+            Some((664.0, 28.0))
+        ]);
     }
 
     #[test]

@@ -576,8 +576,9 @@ pub fn settings_hover_bg(cx: &App, strong: bool) -> Hsla {
 
 /// 按运行时主题重建窗口 chrome：先切组件库深浅模式垫底（未映射的长尾
 /// token 落在正确的底色系上），再用旧壳 [`Skin`] 覆写全部关键 token——
-/// 所有主题（含 Nord / Nord Light / Warm Sand）共用同一条 token 应用路径。启动、设置变更、系统外观变化
-/// 都走这里；主题名先经 [`effective_theme_name`] 折算 follow_system。
+/// 所有主题（含 Nord / Nord Light / Warm Sand）共用同一条 token
+/// 应用路径。启动、设置变更、系统外观变化 都走这里；主题名先经 [`effective_theme_name`] 折算
+/// follow_system。
 pub fn apply_chrome_theme(cx: &mut App) {
     super::font_loading::ensure_selected(cx);
     // 视效（模糊/透明度/壁纸）与主题同一时机刷新：设置热应用、系统外观
@@ -663,11 +664,11 @@ pub(super) fn tab_bar_background(cx: &App) -> Hsla {
 ///
 /// 语义对照：
 /// - ink 三档 → foreground / muted_foreground / `*_active_foreground`
-/// - hover / hover_strong → 普通行悬停与选中水洗；侧栏 Tab 选中态单独使用
-///   accent_soft，与旧壳 `draw_chrome` 一致
+/// - hover / hover_strong → 普通行悬停与选中水洗；侧栏 Tab 选中态单独使用 accent_soft，与旧壳
+///   `draw_chrome` 一致
 /// - surface / card / panel → secondary、group_box、popover 三层浮面
-/// - accent → primary/ring/caret/link；浅色主题下 Skin 已把它折成中性
-///   深灰（2026-07-31 裁定），无需此处分支
+/// - accent → primary/ring/caret/link；浅色主题下 Skin 已把它折成中性 深灰（2026-07-31
+///   裁定），无需此处分支
 /// - danger/ok/warn → 语义三色，不随主题 accent 变
 /// 面积色柔和化：把通道往自身亮度收，色相与明度都不动，只降饱和。
 ///

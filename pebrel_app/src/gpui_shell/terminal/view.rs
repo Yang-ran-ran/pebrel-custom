@@ -271,11 +271,9 @@ pub(crate) fn last_path_component(path: &str) -> Option<String> {
 ///
 /// - **事件**（`Done` / `Completed`）——「刚发生了一件你不在场的事」。你到场就
 ///   没有信息量了，所以当前 tab 一律不显示。
-/// - **状态**（`Running` / `Paused` / `WaitingInput` / `Attention` /
-///   `CommandFailed` / `Failed`）——「此刻仍是这个样子」。你看不看它都还成立，
-///   所以永远显示。
-///   `CommandFailed` 归到这一类：命令失败是需要你处理的结果，不是「未读输出」，
-///   看一眼不等于处理完了。
+/// - **状态**（`Running` / `Paused` / `WaitingInput` / `Attention` / `CommandFailed` /
+///   `Failed`）——「此刻仍是这个样子」。你看不看它都还成立， 所以永远显示。 `CommandFailed`
+///   归到这一类：命令失败是需要你处理的结果，不是「未读输出」， 看一眼不等于处理完了。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SidebarActivity {
     Idle,
@@ -536,10 +534,18 @@ pub struct TerminalView {
 }
 
 impl TerminalView {
+    /// 与 legacy `config::cursor::Cursor::default().blink_interval` 保持一致。
+    const CURSOR_BLINK_INTERVAL: std::time::Duration = std::time::Duration::from_millis(750);
     /// 默认画布（旧壳 `display` 的 `Dimensions { columns: 116, lines: 30 }`
     /// 同源）：窗口按基准字号定形，spawn 网格再按当前缩放字号反推。
     pub const DEFAULT_GRID_COLUMNS: u16 = 116;
     pub const DEFAULT_GRID_LINES: u16 = 30;
+    /// 尾沿去抖窗口：视口静默这么久才向 Term/ConPTY 提交一次 resize。
+    /// 见 `set_layout` 内的合同注释（conhost rewrap 漂移取证）。
+    const RESIZE_SETTLE_DELAY: std::time::Duration = std::time::Duration::from_millis(150);
+    /// 启动稳定闸的宽限期：等待开窗 resize 落地到布局的最长时间。超时
+    /// 即认定差异是真实的（如小屏收拢），按当前视口放行纠正。
+    const STARTUP_GRID_GRACE: std::time::Duration = std::time::Duration::from_millis(400);
 
     pub(super) fn cell_width_for_advance(&self, raw_width: f32, scale: f32) -> Pixels {
         typography::effective_cell_width(raw_width, self.cell_width_mode, scale, self.font_offset_x)
@@ -554,16 +560,6 @@ impl TerminalView {
             scale,
         )
     }
-
-    /// 启动稳定闸的宽限期：等待开窗 resize 落地到布局的最长时间。超时
-    /// 即认定差异是真实的（如小屏收拢），按当前视口放行纠正。
-    const STARTUP_GRID_GRACE: std::time::Duration = std::time::Duration::from_millis(400);
-
-    /// 尾沿去抖窗口：视口静默这么久才向 Term/ConPTY 提交一次 resize。
-    /// 见 `set_layout` 内的合同注释（conhost rewrap 漂移取证）。
-    const RESIZE_SETTLE_DELAY: std::time::Duration = std::time::Duration::from_millis(150);
-    /// 与 legacy `config::cursor::Cursor::default().blink_interval` 保持一致。
-    const CURSOR_BLINK_INTERVAL: std::time::Duration = std::time::Duration::from_millis(750);
 
     /// 首帧前的当前单元格度量（与 element prepaint 同一公式：shape "M" 的
     /// advance / ascent / descent + 配置 offset）。让 spawn 网格与首帧布局一致，避免启动
@@ -1765,7 +1761,11 @@ impl Render for TerminalView {
                  cx| {
                     cx.stop_propagation();
                     if this.ssh_destination.is_some() {
-                        this.drop_external_paths(std::slice::from_ref(&drag.local_path), window, cx);
+                        this.drop_external_paths(
+                            std::slice::from_ref(&drag.local_path),
+                            window,
+                            cx,
+                        );
                     } else {
                         this.paste_dropped_paths(&[drag.path_text.clone()], window, cx);
                     }

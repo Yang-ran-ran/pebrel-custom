@@ -1280,6 +1280,7 @@ mod tests {
             fn automatic_command_views_enabled(&self) -> bool {
                 self.0.get()
             }
+
             fn command_view(&self, _: &str, _: &str) -> Option<CommandView> {
                 self.1.set(self.1.get() + 1);
                 Some(CommandView { mime: "text/x-git-output".into(), title: "git status".into() })

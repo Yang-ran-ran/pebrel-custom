@@ -210,7 +210,10 @@ impl NebulaWorkspace {
                     SidebarActivity::Running => {
                         let (track, head) =
                             crate::gpui_shell::theme::sidebar_spinner_colors(cx, active);
-                        Some(Self::spinner(self.spinner_phase, track, head, cx.weak_entity()).into_any_element())
+                        Some(
+                            Self::spinner(self.spinner_phase, track, head, cx.weak_entity())
+                                .into_any_element(),
+                        )
                     },
                     SidebarActivity::Paused => Some(
                         Icon::new(IconName::Pause)
@@ -233,14 +236,12 @@ impl NebulaWorkspace {
                             .text_color(theme.danger)
                             .into_any_element(),
                     ),
-                    SidebarActivity::WaitingInput => Some(
-                        Self::waiting_hand(label_px, theme.primary)
-                            .into_any_element(),
-                    ),
-                    SidebarActivity::Attention => Some(
-                        Self::waiting_hand(label_px, theme.warning)
-                            .into_any_element(),
-                    ),
+                    SidebarActivity::WaitingInput => {
+                        Some(Self::waiting_hand(label_px, theme.primary).into_any_element())
+                    },
+                    SidebarActivity::Attention => {
+                        Some(Self::waiting_hand(label_px, theme.warning).into_any_element())
+                    },
                     SidebarActivity::Failed => Some(
                         Icon::new(IconName::CircleX)
                             .xsmall()
@@ -264,7 +265,7 @@ impl NebulaWorkspace {
                     a: 1.0,
                 });
                 let (dragged, shift) = match drag {
-                    Some((source, _, _)) if ix == source => (true, 0.0),
+                    Some((source, ..)) if ix == source => (true, 0.0),
                     Some((source, target, _)) if source < target && ix > source && ix <= target => {
                         (false, -pitch)
                     },
@@ -276,9 +277,11 @@ impl NebulaWorkspace {
 
                 let row = h_flex()
                     .id(("top-tab", ix))
-                    .when_some(tooltip, |row, text| row.tooltip(move |window, cx| {
-                        super::tab_presentation::tooltip(text.clone(), window, cx)
-                    }))
+                    .when_some(tooltip, |row, text| {
+                        row.tooltip(move |window, cx| {
+                            super::tab_presentation::tooltip(text.clone(), window, cx)
+                        })
+                    })
                     .debug_selector(|| format!("top-tab-{ix}"))
                     .group(hover_group.clone())
                     .relative()
@@ -384,9 +387,11 @@ impl NebulaWorkspace {
                                 .flex()
                                 .justify_center()
                                 .child(
-                                    Icon::new(IconName::Settings)
-                                        .small()
-                                        .text_color(if active { active_fg } else { muted }),
+                                    Icon::new(IconName::Settings).small().text_color(if active {
+                                        active_fg
+                                    } else {
+                                        muted
+                                    }),
                                 ),
                         )
                     })
@@ -401,13 +406,20 @@ impl NebulaWorkspace {
                     .when_some(program_glyph, |row, glyph| {
                         row.child(
                             div()
-                                .w(px(if logo_pending { TAB_LABEL_ICON_SIZE } else { TAB_LABEL_ICON_W }))
+                                .w(px(if logo_pending {
+                                    TAB_LABEL_ICON_SIZE
+                                } else {
+                                    TAB_LABEL_ICON_W
+                                }))
                                 .flex_shrink_0()
                                 .font_family(symbol_family.clone())
                                 .text_size(px(label_px))
                                 .font_weight(FontWeight::NORMAL)
                                 .text_color(if active { active_fg } else { muted })
-                                .child(crate::gpui_shell::widgets::terminal_glyph(glyph, TAB_LABEL_ICON_SIZE)),
+                                .child(crate::gpui_shell::widgets::terminal_glyph(
+                                    glyph,
+                                    TAB_LABEL_ICON_SIZE,
+                                )),
                         )
                     })
                     .when(
@@ -426,7 +438,7 @@ impl NebulaWorkspace {
                                     .child(pane_header::split_glyph(
                                         label_px * 0.78,
                                         if active { active_fg } else { muted },
-                                )),
+                                    )),
                             )
                         },
                     )
@@ -438,14 +450,12 @@ impl NebulaWorkspace {
                             .flex()
                             .items_center()
                             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                            .on_key_down(cx.listener(
-                                |this, event: &KeyDownEvent, window, cx| {
-                                    if event.keystroke.key == "escape" {
-                                        cx.stop_propagation();
-                                        this.cancel_rename(window, cx);
-                                    }
-                                },
-                            ))
+                            .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                                if event.keystroke.key == "escape" {
+                                    cx.stop_propagation();
+                                    this.cancel_rename(window, cx);
+                                }
+                            }))
                             .child(
                                 Input::new(&input)
                                     .w_full()
@@ -513,19 +523,19 @@ impl NebulaWorkspace {
                                     .invisible()
                                     .group_hover(hover_group, |slot| slot.visible())
                                     .when(tab_close_visible || settings_navigation, |slot| {
-                                            slot.child(Self::tab_status_icon(
-                                                Button::new(("top-close-tab", ix))
-                                                    .icon(IconName::Close)
-                                                    .ghost()
-                                                    .xsmall()
-                                                    .on_click(cx.listener(
-                                                        move |this, _, window, cx| {
-                                                            cx.stop_propagation();
-                                                            this.close_top_tab(ix, window, cx);
-                                                        },
-                                                    )),
-                                            ))
-                                        }),
+                                        slot.child(Self::tab_status_icon(
+                                            Button::new(("top-close-tab", ix))
+                                                .icon(IconName::Close)
+                                                .ghost()
+                                                .xsmall()
+                                                .on_click(cx.listener(
+                                                    move |this, _, window, cx| {
+                                                        cx.stop_propagation();
+                                                        this.close_top_tab(ix, window, cx);
+                                                    },
+                                                )),
+                                        ))
+                                    }),
                             ),
                     )
                     .when_some(cross_window_drag, |row, payload| {

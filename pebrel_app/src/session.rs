@@ -452,14 +452,11 @@ mod tests {
 
     #[test]
     fn v2_round_trip_preserves_tab_name_and_color() {
-        let session = Session::new(
-            0,
-            vec![TabSession::single(
-                "D:/work".into(),
-                Some("Backend".into()),
-                Some(Rgb::new(97, 175, 239)),
-            )],
-        );
+        let session = Session::new(0, vec![TabSession::single(
+            "D:/work".into(),
+            Some("Backend".into()),
+            Some(Rgb::new(97, 175, 239)),
+        )]);
         let json = serde_json::to_string(&session).unwrap();
         let restored: Session = serde_json::from_str(&json).unwrap();
         assert_eq!(restored, session);

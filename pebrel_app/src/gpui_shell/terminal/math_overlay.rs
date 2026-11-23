@@ -1215,11 +1215,11 @@ mod tests {
     #[test]
     fn alt_screen_renders_agent_math() {
         let mut overlay = MathOverlay::default();
-        let mut term = term_with(
-            96,
-            4,
-            &[r"$n! \approx \sqrt{2\pi n}\left(\dfrac{n}{e}\right)^n$", "", "prompt"],
-        );
+        let mut term = term_with(96, 4, &[
+            r"$n! \approx \sqrt{2\pi n}\left(\dfrac{n}{e}\right)^n$",
+            "",
+            "prompt",
+        ]);
         let main_frame = plan(&mut overlay, &term, 96, 4);
         let source_end = r"$n! \approx \sqrt{2\pi n}\left(\dfrac{n}{e}\right)^n$".chars().count();
         assert!(main_frame.project_cell(0, source_end, 96).unwrap() < source_end);
@@ -1278,34 +1278,30 @@ mod tests {
         cx.update(crate::gpui_shell::math_view::register);
         let mut overlay = MathOverlay::default();
         cx.update(|cx| overlay.bind_resources(cx));
-        let term = term_with(
-            100,
-            24,
-            &[
-                "1. quadratic",
-                "",
-                "  [",
-                r"  x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}",
-                "  ]",
-                "",
-                "2. euler",
-                "",
-                "  [",
-                r"  e^{i\pi}+1=0",
-                "  ]",
-                "",
-                "3. integral",
-                "",
-                "  [",
-                r"  \int_a^b f(x),\mathrm{d}x=F(b)-F(a)",
-                "  ]",
-                "",
-                r"$E$ $0$ $2.71828$ $ax^2+bx+c=0$ $\pm$",
-                r"$\displaystyle\int_0^1 x^2,dx",
-                r"  = \dfrac{1}{3}$",
-                "prompt",
-            ],
-        );
+        let term = term_with(100, 24, &[
+            "1. quadratic",
+            "",
+            "  [",
+            r"  x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}",
+            "  ]",
+            "",
+            "2. euler",
+            "",
+            "  [",
+            r"  e^{i\pi}+1=0",
+            "  ]",
+            "",
+            "3. integral",
+            "",
+            "  [",
+            r"  \int_a^b f(x),\mathrm{d}x=F(b)-F(a)",
+            "  ]",
+            "",
+            r"$E$ $0$ $2.71828$ $ax^2+bx+c=0$ $\pm$",
+            r"$\displaystyle\int_0^1 x^2,dx",
+            r"  = \dfrac{1}{3}$",
+            "prompt",
+        ]);
         let size = grid_size_info(100, 24, 8.0, 18.0);
         let mut counts = Vec::new();
         for _ in 0..12 {

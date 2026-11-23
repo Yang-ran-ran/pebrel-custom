@@ -77,11 +77,7 @@ impl SettingsPane {
         cx.notify();
     }
 
-    fn deepseek_desktop_action(
-        &mut self,
-        action: DeepSeekDesktopAction,
-        cx: &mut Context<Self>,
-    ) {
+    fn deepseek_desktop_action(&mut self, action: DeepSeekDesktopAction, cx: &mut Context<Self>) {
         let agent = AgentKind::DeepSeekHarness;
         if self.agents.loading || self.agents.busy.is_some() {
             return;
@@ -101,7 +97,9 @@ impl SettingsPane {
                 DeepSeekDesktopAction::Install => "DeepSeek Harness setup completed".to_owned(),
                 DeepSeekDesktopAction::Launch => "DeepSeek Harness launch requested".to_owned(),
                 DeepSeekDesktopAction::Refresh => "DeepSeek Harness status refreshed".to_owned(),
-                DeepSeekDesktopAction::Uninstall => "DeepSeek Harness uninstaller started".to_owned(),
+                DeepSeekDesktopAction::Uninstall => {
+                    "DeepSeek Harness uninstaller started".to_owned()
+                },
             };
             (result.map(|()| message), integrations::inspect())
         });
@@ -462,7 +460,10 @@ impl SettingsPane {
                                     .disabled(action_disabled)
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         cx.stop_propagation();
-                                        this.deepseek_desktop_action(DeepSeekDesktopAction::Install, cx);
+                                        this.deepseek_desktop_action(
+                                            DeepSeekDesktopAction::Install,
+                                            cx,
+                                        );
                                     })),
                             )
                         })
@@ -474,7 +475,10 @@ impl SettingsPane {
                                 .disabled(action_disabled)
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     cx.stop_propagation();
-                                    this.deepseek_desktop_action(DeepSeekDesktopAction::Refresh, cx);
+                                    this.deepseek_desktop_action(
+                                        DeepSeekDesktopAction::Refresh,
+                                        cx,
+                                    );
                                 })),
                         )
                         .when(state.desktop_installed, |actions| {
@@ -487,7 +491,10 @@ impl SettingsPane {
                                         .disabled(action_disabled || state.desktop_running)
                                         .on_click(cx.listener(|this, _, _, cx| {
                                             cx.stop_propagation();
-                                            this.deepseek_desktop_action(DeepSeekDesktopAction::Launch, cx);
+                                            this.deepseek_desktop_action(
+                                                DeepSeekDesktopAction::Launch,
+                                                cx,
+                                            );
                                         })),
                                 )
                                 .child(
@@ -498,7 +505,10 @@ impl SettingsPane {
                                         .disabled(action_disabled || state.desktop_running)
                                         .on_click(cx.listener(|this, _, _, cx| {
                                             cx.stop_propagation();
-                                            this.deepseek_desktop_action(DeepSeekDesktopAction::Uninstall, cx);
+                                            this.deepseek_desktop_action(
+                                                DeepSeekDesktopAction::Uninstall,
+                                                cx,
+                                            );
                                         })),
                                 )
                         }),

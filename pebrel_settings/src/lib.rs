@@ -7,10 +7,10 @@
 //!
 //! 同步事实（记录在案）：
 //! - `pebrel_app/src/display/ui/theme.rs` 是旧壳体内的既有实现；本 crate 的
-//!   色值与其逐字一致。旧壳按 P4 裁定冻结保留，新 UI 一律读这里；改主题
-//!   色值时两处同步，直到 P3 接入完成后旧壳引用此 crate。
-//! - `pebrel_terminal::tty::windows` 里有一份私有的同款路径/键值读取；引擎
-//!   不能依赖 UI 侧 crate（依赖方向是铁律），属有意保留的最小重复。
+//!   色值与其逐字一致。旧壳按 P4 裁定冻结保留，新 UI 一律读这里；改主题 色值时两处同步，直到 P3
+//!   接入完成后旧壳引用此 crate。
+//! - `pebrel_terminal::tty::windows` 里有一份私有的同款路径/键值读取；引擎 不能依赖 UI 侧
+//!   crate（依赖方向是铁律），属有意保留的最小重复。
 //! - `follow_system_theme` 的系统外观联动暂未在此实现（消费方自行处理）。
 
 use std::collections::HashMap;
@@ -891,12 +891,12 @@ impl BellModeName {
 /// 五档对应不同的 DWM 成本模型，落点在
 /// `gpui_shell::wallpaper::apply_windows_accent_policy`：
 /// - `None`：AccentPolicy 全零 + `DWMSBT_NONE`，透明交换链直接按内容 alpha 合成。
-/// - `Mica` / `MicaAlt`：系统合成器提供壁纸 backdrop、模糊和色调，
-///   Nebula 不读取壁纸文件，也不在客户区仿画材质；不逐帧采样其他窗口。
+/// - `Mica` / `MicaAlt`：系统合成器提供壁纸 backdrop、模糊和色调， Nebula
+///   不读取壁纸文件，也不在客户区仿画材质；不逐帧采样其他窗口。
 /// - `Aero`：实时 BlurBehind + 半透明深色玻璃色调。
-/// - `Acrylic`：`ACCENT_ENABLE_ACRYLICBLURBEHIND`。DWM 对窗口后方**实时
-///   内容**逐帧高斯模糊 + 噪点 + 饱和度。观感最好，也是唯一能透出后方其他
-///   窗口的档位；2026-08-22 实测这一档把 dwm.exe 顶到 28% 均值。
+/// - `Acrylic`：`ACCENT_ENABLE_ACRYLICBLURBEHIND`。DWM 对窗口后方**实时 内容**逐帧高斯模糊 + 噪点 +
+///   饱和度。观感最好，也是唯一能透出后方其他 窗口的档位；2026-08-22 实测这一档把 dwm.exe 顶到 28%
+///   均值。
 ///
 /// # 缺省为什么是 Mica 而不是 Acrylic
 ///
@@ -1433,13 +1433,10 @@ mod tests {
         assert!(defaults.dim_inactive_panes);
         let mut text = "theme=Nord\nfuture_option=keep\n".to_owned();
         for (focus, dim) in [(true, false), (false, true)] {
-            text = apply_updates(
-                &text,
-                &[
-                    ("focus_follows_mouse", (focus as u8).to_string()),
-                    ("dim_inactive_panes", (dim as u8).to_string()),
-                ],
-            );
+            text = apply_updates(&text, &[
+                ("focus_follows_mouse", (focus as u8).to_string()),
+                ("dim_inactive_panes", (dim as u8).to_string()),
+            ]);
             let settings = RuntimeSettings::from_raw(&RawSettings::from_text(&text));
             assert_eq!(settings.focus_follows_mouse, Some(focus));
             assert_eq!(settings.dim_inactive_panes, dim);
@@ -1474,10 +1471,10 @@ mod tests {
     #[test]
     fn all_app_icons_round_trip_without_changing_other_settings() {
         for variant in AppIconName::ALL {
-            let text = apply_updates(
-                "# keep\ntheme=Nord\ncustom=preserved\napp_icon=silver-violet\n",
-                &[("app_icon", variant.settings_value().to_owned())],
-            );
+            let text =
+                apply_updates("# keep\ntheme=Nord\ncustom=preserved\napp_icon=silver-violet\n", &[
+                    ("app_icon", variant.settings_value().to_owned()),
+                ]);
             let settings = RuntimeSettings::from_raw(&RawSettings::from_text(&text));
             assert_eq!(settings.app_icon, variant);
             assert_eq!(settings.theme, ThemeName::Nord);
@@ -1972,13 +1969,10 @@ mod tests {
     #[test]
     fn keybind_pairs_parse_and_rewrite() {
         let text = "theme=Nebula\nkeybind=ctrl+x:Copy\n# comment\nkeybind=alt+f1:SplitRight\n";
-        assert_eq!(
-            keybind_pairs_from_text(text),
-            vec![
-                ("ctrl+x".to_owned(), "Copy".to_owned()),
-                ("alt+f1".to_owned(), "SplitRight".to_owned()),
-            ]
-        );
+        assert_eq!(keybind_pairs_from_text(text), vec![
+            ("ctrl+x".to_owned(), "Copy".to_owned()),
+            ("alt+f1".to_owned(), "SplitRight".to_owned()),
+        ]);
         let rewritten = apply_keybinds(text, &[("ctrl+y".to_owned(), "Paste".to_owned())]);
         assert_eq!(rewritten, "theme=Nebula\n# comment\nkeybind=ctrl+y:Paste\n");
     }

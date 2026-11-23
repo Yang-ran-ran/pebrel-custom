@@ -38,9 +38,9 @@ use pebrel_terminal::tty;
 
 mod agent_env;
 mod ai_agents;
-mod ai_memory;
 mod ai_assistant;
 mod ai_hook;
+mod ai_memory;
 mod ai_providers;
 mod ai_sessions;
 mod app_icon;

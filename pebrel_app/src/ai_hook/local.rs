@@ -13,8 +13,8 @@ mod codex_hooks;
 mod codex_notify;
 mod config_guard;
 mod cursor;
-mod extended;
 mod deepseek_harness;
+mod extended;
 
 pub(super) fn deepseek_harness_state() -> deepseek_harness::State {
     deepseek_harness::inspect()
@@ -438,27 +438,17 @@ impl Bridge {
     fn files(self) -> (&'static str, &'static str, &'static str, &'static [&'static str]) {
         // Exact embedded payloads verified from v1.0.0 through v1.5.0.
         match self {
-            Self::Opencode => (
-                "pebrel.js",
-                "nebula.js",
-                OPENCODE_PLUGIN_JS,
-                &[
-                    "137965614dc3d04892209a7419dbfd40e42a285493398b4e989c64ff7a13cb0e",
-                    "f42225dac77b7f9e577b6a025309c44f8b35a830a60dee475eefc68f00c30190",
-                    "e81481ed990d205911f22096a34aff5bbbda3d220450a3b39230b121ca158075",
-                    "5f155e7330a9ef51c5ad1a048e27bedf6f48ade94e0bbe0624d76e632b545a06",
-                ],
-            ),
-            Self::Pi => (
-                "pebrel.ts",
-                "nebula.ts",
-                PI_EXTENSION_TS,
-                &[
-                    "52a13a3a39114a9ca1ddb1e224712449124a532a21e9a57e6627a89d2ae02302",
-                    "496680cbec44d1f4b60f2138ec86b8fe453a74e974507867cb72736c0ac00766",
-                    "50e81b910107150fd4c7e47064ab2b78e4fc6dfca4484d8ad3d64f17a0a5fb7e",
-                ],
-            ),
+            Self::Opencode => ("pebrel.js", "nebula.js", OPENCODE_PLUGIN_JS, &[
+                "137965614dc3d04892209a7419dbfd40e42a285493398b4e989c64ff7a13cb0e",
+                "f42225dac77b7f9e577b6a025309c44f8b35a830a60dee475eefc68f00c30190",
+                "e81481ed990d205911f22096a34aff5bbbda3d220450a3b39230b121ca158075",
+                "5f155e7330a9ef51c5ad1a048e27bedf6f48ade94e0bbe0624d76e632b545a06",
+            ]),
+            Self::Pi => ("pebrel.ts", "nebula.ts", PI_EXTENSION_TS, &[
+                "52a13a3a39114a9ca1ddb1e224712449124a532a21e9a57e6627a89d2ae02302",
+                "496680cbec44d1f4b60f2138ec86b8fe453a74e974507867cb72736c0ac00766",
+                "50e81b910107150fd4c7e47064ab2b78e4fc6dfca4484d8ad3d64f17a0a5fb7e",
+            ]),
         }
     }
 }

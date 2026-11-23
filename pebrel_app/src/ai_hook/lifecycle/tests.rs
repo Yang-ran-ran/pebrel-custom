@@ -467,7 +467,10 @@ fn ordinary_idle_reminders_are_not_blocking_requests() {
         "notification_type": "elicitation_dialog"
     });
     let question = format!("nebula-hook/1 source=claude\n{payload}");
-    assert_eq!(parse_remote_envelope(question.as_bytes(), Some(1)).unwrap().kind, AiHookKind::NeedsAttention);
+    assert_eq!(
+        parse_remote_envelope(question.as_bytes(), Some(1)).unwrap().kind,
+        AiHookKind::NeedsAttention
+    );
 }
 
 #[test]

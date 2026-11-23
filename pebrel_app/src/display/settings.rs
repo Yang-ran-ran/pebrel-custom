@@ -2044,7 +2044,7 @@ pub(super) fn appearance_preview_wallpaper_rects(
         KeymapPaneState::default(),
     );
     let (vx, vy, vw, vh) = geometry.preview;
-    let (_, content_y, _, _) = geometry.content;
+    let (_, content_y, ..) = geometry.content;
     let (_, py, _, ph) = geometry.popup;
     let top = vy.max(content_y);
     let bottom = (vy + vh).min(py + ph);
@@ -3439,7 +3439,7 @@ const PREVIEW_PROMPT_COLS: usize = 2;
 fn dropdown_selected_index(view: &SettingsView, dropdown: SettingsDropdown) -> Option<usize> {
     match dropdown {
         SettingsDropdown::Shell => {
-            view.shells.iter().position(|(id, _, _)| view.shell_id.as_deref() == Some(id.as_str()))
+            view.shells.iter().position(|(id, ..)| view.shell_id.as_deref() == Some(id.as_str()))
         },
         // 加一：弹层第 0 行是搜索框，候选整体下移一行。
         SettingsDropdown::Font => {
@@ -6330,7 +6330,7 @@ pub(super) fn draw_text(
                     "",
                     sk.ink,
                 );
-                let (value_box, _, _) = widgets::spinner_rects(geometry.font_size_row, scale);
+                let (value_box, ..) = widgets::spinner_rects(geometry.font_size_row, scale);
                 let value = format!("{:.0}", view.font_size_px);
                 let cols: usize = value.chars().map(|c| c.width().unwrap_or(0)).sum();
                 r.draw_chrome_text(
@@ -6607,7 +6607,7 @@ pub(super) fn draw_text(
             }
         },
         NebulaSettingsSection::Providers => {
-            let (list_x, list_y, _, _) = geometry.provider_row0;
+            let (list_x, list_y, ..) = geometry.provider_row0;
             if visible(group_y(list_y), title_h) {
                 section_title(
                     r,
@@ -6994,7 +6994,7 @@ pub(super) fn draw_text(
                     );
                     let (ix, iy, iw, ih) = address;
                     let max_cols = (((iw - s(24.0)) / cell_w) as usize).max(1);
-                    let (text, placeholder, _, _) = ssh_proxy_input_display(view, 0, max_cols);
+                    let (text, placeholder, ..) = ssh_proxy_input_display(view, 0, max_cols);
                     r.draw_chrome_text(
                         size,
                         ix + s(12.0),

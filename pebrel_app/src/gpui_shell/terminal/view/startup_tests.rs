@@ -1094,13 +1094,10 @@ fn pi_outcomes_emit_only_the_matching_notification(cx: &mut TestAppContext) {
         assert_eq!(notifications.borrow().len(), expected_count, "{reason}");
     }
     let notifications = notifications.borrow();
-    assert!(matches!(
-        &notifications[1],
-        crate::notify::Notification::AiTurnIssue {
-            outcome: crate::ai_hook::AiTurnOutcome::Failed,
-            ..
-        }
-    ));
+    assert!(matches!(&notifications[1], crate::notify::Notification::AiTurnIssue {
+        outcome: crate::ai_hook::AiTurnOutcome::Failed,
+        ..
+    }));
     assert!(!notifications[1].is_attention());
 }
 

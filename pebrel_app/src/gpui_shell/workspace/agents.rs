@@ -52,20 +52,13 @@ pub(super) fn ai_hook_target_pane_for_cwd(
     active_focused
         .filter(|pane_id| matches(*pane_id))
         .or_else(|| {
-            pane_cwds
-                .iter()
-                .find(|(_, cwd)| same_workspace_path(cwd, event_cwd))
-                .map(|(id, _)| *id)
+            pane_cwds.iter().find(|(_, cwd)| same_workspace_path(cwd, event_cwd)).map(|(id, _)| *id)
         })
         .or(active_focused)
 }
 
 fn same_workspace_path(left: &str, right: &str) -> bool {
-    let normalize = |path: &str| {
-        path.trim()
-            .trim_end_matches(['/', '\\'])
-            .replace('\\', "/")
-    };
+    let normalize = |path: &str| path.trim().trim_end_matches(['/', '\\']).replace('\\', "/");
     let left = normalize(left);
     let right = normalize(right);
     #[cfg(windows)]
@@ -115,10 +108,10 @@ pub(super) fn ai_session_palette_rows(
                 group_order,
                 group: group.clone(),
                 label: session.title.clone(),
-                hint: language.format(
-                    Message::WorkspaceResumeHint,
-                    &[("source", source), ("location", &location)],
-                ),
+                hint: language.format(Message::WorkspaceResumeHint, &[
+                    ("source", source),
+                    ("location", &location),
+                ]),
                 hint_style: super::WorkspacePaletteHintStyle::Metadata,
                 search: format!("恢复 resume {search}"),
                 action: WorkspacePaletteAction::RunAiSession { command, cwd: cwd.clone() },
@@ -441,22 +434,18 @@ impl NebulaWorkspace {
         };
         let position = pebrel_settings::RuntimeSettings::load().new_tab_position;
         let at = new_tab_insert_index(position, self.active, self.tabs.len());
-        self.insert_tab_at(
-            at,
-            tab,
-            TabMeta {
-                runtime_id: Default::default(),
-                custom_name: agent.map(|agent| {
-                    crate::gpui_shell::config::ui_language(cx)
-                        .format(Message::WorkspaceForkTitle, &[("title", agent.display_name())])
-                }),
-                color,
-                shell_tag,
-                launch: Some(launch_session),
-                has_bell: false,
-                ..Default::default()
-            },
-        );
+        self.insert_tab_at(at, tab, TabMeta {
+            runtime_id: Default::default(),
+            custom_name: agent.map(|agent| {
+                crate::gpui_shell::config::ui_language(cx)
+                    .format(Message::WorkspaceForkTitle, &[("title", agent.display_name())])
+            }),
+            color,
+            shell_tag,
+            launch: Some(launch_session),
+            has_bell: false,
+            ..Default::default()
+        });
         self.active = at;
         self.reveal_active_tab();
         self.focus_active(window, cx);

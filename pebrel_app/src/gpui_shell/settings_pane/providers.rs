@@ -137,10 +137,7 @@ pub(super) fn default_wire_api(kind: ProviderKind) -> &'static str {
 /// implements that wire format (notably DeepSeek's OpenAI-compatible Chat API).
 fn provider_kind_for_protocol(current: ProviderKind, selected: ProviderKind) -> ProviderKind {
     if current == ProviderKind::DeepSeek
-        && matches!(
-            selected,
-            ProviderKind::Custom | ProviderKind::OpenAi | ProviderKind::Anthropic
-        )
+        && matches!(selected, ProviderKind::Custom | ProviderKind::OpenAi | ProviderKind::Anthropic)
     {
         ProviderKind::DeepSeek
     } else {

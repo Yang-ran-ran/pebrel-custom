@@ -181,6 +181,7 @@ impl EventReceiver {
 
 impl Stream for EventReceiver {
     type Item = Event;
+
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Event>> {
         let result = Pin::new(&mut self.receiver).poll_next(cx);
         if let Poll::Ready(Some(event)) = &result {
@@ -269,10 +270,10 @@ mod tests {
                 };
                 assert_eq!(bytes, format!("{edge}:{id}").into_bytes());
             }
-            assert!(matches!(
-                receiver.try_recv().unwrap(),
-                Event::CommandDone { exit_code: Some(0), empty_prompt_zone: false }
-            ));
+            assert!(matches!(receiver.try_recv().unwrap(), Event::CommandDone {
+                exit_code: Some(0),
+                empty_prompt_zone: false
+            }));
             assert!(receiver.try_recv().is_err());
             sender.send(Event::Wakeup);
             assert!(matches!(receiver.try_recv().unwrap(), Event::Wakeup));

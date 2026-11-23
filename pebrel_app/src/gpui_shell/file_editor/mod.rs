@@ -70,18 +70,15 @@ use document::SaveError;
 use outline::Outline;
 use source::{DocumentSource, LoadedDocument};
 
-actions!(
-    file_editor,
-    [
-        SaveFile,
-        ToggleSource,
-        FinishBlockEdit,
-        ApplyObjectEdit,
-        CancelObjectEdit,
-        BoldSelection,
-        ItalicSelection
-    ]
-);
+actions!(file_editor, [
+    SaveFile,
+    ToggleSource,
+    FinishBlockEdit,
+    ApplyObjectEdit,
+    CancelObjectEdit,
+    BoldSelection,
+    ItalicSelection
+]);
 
 pub(super) fn init(cx: &mut App) {
     cx.bind_keys([
@@ -350,6 +347,7 @@ impl TextFileView {
     pub fn is_dirty(&self) -> bool {
         self.dirty || self.object_edit.as_ref().is_some_and(|edit| edit.changed)
     }
+
     pub fn is_saving(&self) -> bool {
         self.saving
     }
@@ -798,7 +796,8 @@ impl Render for TextFileView {
                     |view, _: &gpui_component::input::Escape, window, cx| {
                         if view.object_edit.is_some() {
                             if view.settle_object_composition(window, cx) {
-                                // Input 的 Escape 会继续冒泡；此处消费按键，避免同次 Escape 又取消草稿。
+                                // Input 的 Escape 会继续冒泡；此处消费按键，避免同次 Escape
+                                // 又取消草稿。
                                 cx.stop_propagation();
                             } else {
                                 view.cancel_object_edit(cx);

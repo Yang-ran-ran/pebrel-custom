@@ -3,8 +3,8 @@
 //! 语义全部对齐旧壳，但**模糊的实现手段不能照抄旧壳**（见
 //! [`background_appearance`]）：一律走 GPUI 自己的
 //! [`WindowBackgroundAppearance`]，由平台层落到各自的原生 API。
-//! - 透明度 = 壳底色与终端默认背景的 alpha（文字与彩色单元背景保持不
-//!   透明，对比度不塌——旧壳 `draw_window_backdrop` 裁定）。
+//! - 透明度 = 壳底色与终端默认背景的 alpha（文字与彩色单元背景保持不 透明，对比度不塌——旧壳
+//!   `draw_window_backdrop` 裁定）。
 //! - 壁纸 = 底色之上、单元格之下的一层图（旧壳 `renderer::image` 的
 //!   fit/alignment/透明度语义；图自身透明度独立于窗口 opacity）。
 //!

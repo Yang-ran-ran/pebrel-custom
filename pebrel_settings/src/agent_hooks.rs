@@ -22,8 +22,6 @@ pub enum AgentHook {
 }
 
 impl AgentHook {
-    pub const DEFAULT: [Self; 2] = [Self::Claude, Self::Codex];
-
     pub const ALL: [Self; 15] = [
         Self::Claude,
         Self::Codex,
@@ -41,6 +39,7 @@ impl AgentHook {
         Self::Antigravity,
         Self::DeepSeekHarness,
     ];
+    pub const DEFAULT: [Self; 2] = [Self::Claude, Self::Codex];
 
     pub const fn settings_key(self) -> &'static str {
         match self {

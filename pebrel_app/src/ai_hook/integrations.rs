@@ -266,12 +266,7 @@ mod tests {
             (AgentKind::DeepSeekHarness, AgentHook::DeepSeekHarness),
         ];
         for (agent, hook) in supported {
-            assert_eq!(
-                hook_for(agent),
-                Some(hook),
-                "{} hook protocol mapping",
-                agent.slug()
-            );
+            assert_eq!(hook_for(agent), Some(hook), "{} hook protocol mapping", agent.slug());
         }
         assert_eq!(
             AGENTS.iter().filter_map(|agent| hook_for(*agent)).count(),
@@ -313,10 +308,7 @@ mod tests {
             "Desktop launch is managed by the dedicated installer/launcher, not a guessed CLI command"
         );
         assert_eq!(hook_for(AgentKind::DeepSeekHarness), Some(AgentHook::DeepSeekHarness));
-        assert_eq!(
-            AgentHook::DeepSeekHarness.settings_key(),
-            "ai_hooks_deepseek_harness"
-        );
+        assert_eq!(AgentHook::DeepSeekHarness.settings_key(), "ai_hooks_deepseek_harness");
     }
 
     #[test]

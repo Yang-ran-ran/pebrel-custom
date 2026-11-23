@@ -34,6 +34,7 @@ impl NebulaWorkspace {
             self.run_workspace_palette_action(action, window, cx);
         }
     }
+
     pub(super) fn run_workspace_palette_action(
         &mut self,
         action: WorkspacePaletteAction,

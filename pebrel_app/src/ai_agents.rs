@@ -198,7 +198,9 @@ impl AgentKind {
             Self::CodeBuddy => &["codebuddy", "cbc", "codebuddy-code", "codebuddy-lowmem"],
             // The package's `cmd` bin is omitted: it is the Windows Command Prompt.
             Self::CommandCode => &["command-code", "commandcode", "cmdc"],
-            Self::DeepSeekHarness => &["deepseek-harness", "deepseek-harness-desktop", "deepseek harness"],
+            Self::DeepSeekHarness => {
+                &["deepseek-harness", "deepseek-harness-desktop", "deepseek harness"]
+            },
         }
     }
 
@@ -1032,10 +1034,7 @@ mod tests {
     #[test]
     fn deepseek_harness_is_a_distinct_desktop_agent_without_guessed_cli_resume_flags() {
         assert_eq!(AgentKind::parse("dsh"), None);
-        assert_eq!(
-            AgentKind::parse("DeepSeek Harness.exe"),
-            Some(AgentKind::DeepSeekHarness)
-        );
+        assert_eq!(AgentKind::parse("DeepSeek Harness.exe"), Some(AgentKind::DeepSeekHarness));
         assert_eq!(AgentKind::parse_command("dsh plugin --profile desktop list"), None);
         assert_eq!(AgentKind::DeepSeekHarness.start_command(), None);
         assert_eq!(AgentKind::DeepSeekHarness.resume_command("session-1"), None);

@@ -553,8 +553,14 @@ fn claude_style_agents_share_the_lifecycle_under_their_own_source() {
         assert_eq!(prompt.event_id.as_deref(), Some("dsh-session-42-8"));
         assert_eq!(prompt.bridge_sequence, Some(8));
         assert_eq!(prompt.occurred_at_ms, Some(1_700_000_000_000));
-        assert_eq!(prompt.pane, Some(3), "Pane identity is taken from Pebrel's local hook envelope");
-        let tool = parse(r#"{"hook_event_name":"PostToolUse","session_id":"s1","tool_name":"terminal"}"#).unwrap();
+        assert_eq!(
+            prompt.pane,
+            Some(3),
+            "Pane identity is taken from Pebrel's local hook envelope"
+        );
+        let tool =
+            parse(r#"{"hook_event_name":"PostToolUse","session_id":"s1","tool_name":"terminal"}"#)
+                .unwrap();
         assert_eq!(tool.kind, AiHookKind::ToolComplete);
         assert_eq!(tool.session_id.as_deref(), Some("s1"));
         let ask = r#"{"hook_event_name":"Notification","notification_type":"permission_prompt"}"#;

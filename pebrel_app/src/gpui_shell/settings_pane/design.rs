@@ -68,7 +68,6 @@ impl SettingsPane {
     }
 
     /// 组与组之间的间隔。
-    ///
     pub(crate) fn group_divider(_cx: &Context<Self>) -> gpui::Div {
         div().w_full().h(px(GROUP_GAP - 8.0)).flex_shrink_0()
     }

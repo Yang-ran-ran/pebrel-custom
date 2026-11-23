@@ -21,10 +21,7 @@ fn deepseek_real_requests_follow_all_three_selected_protocols() {
         let mut target = AiProvider::preset(ProviderKind::DeepSeek, "deepseek-client-test");
         target.enabled = true;
         target.wire_api = wire.into();
-        assert!(
-            supported(&target),
-            "{wire} must be a supported DeepSeek protocol"
-        );
+        assert!(supported(&target), "{wire} must be a supported DeepSeek protocol");
         let (url, body) = payload(&target, "zh-CN", &messages, "").unwrap();
         assert_eq!(url, format!("https://api.deepseek.com{route}"));
         assert_eq!(body["model"], "deepseek-flash");
@@ -176,16 +173,8 @@ fn deepseek_messages_protocol_sends_the_expected_route_and_api_key_header() {
         }
         let request = String::from_utf8_lossy(&bytes);
         assert!(request.starts_with("POST /anthropic/v1/messages HTTP/1.1"));
-        assert!(
-            request
-                .to_ascii_lowercase()
-                .contains("x-api-key: synthetic-test-key")
-        );
-        assert!(
-            !request
-                .to_ascii_lowercase()
-                .contains("authorization: bearer")
-        );
+        assert!(request.to_ascii_lowercase().contains("x-api-key: synthetic-test-key"));
+        assert!(!request.to_ascii_lowercase().contains("authorization: bearer"));
         assert!(request.contains("\"max_tokens\":512"));
         let body = json!({
             "stop_reason":"end_turn",
@@ -261,12 +250,11 @@ fn real_http_path_accepts_only_a_complete_result_and_never_follows_redirects() {
     let cancelled = AtomicBool::new(false);
     // Exercise the reusable production entrypoint; no provider file or keychain
     // is required after the snapshot has been prepared.
-    let client =
-        PreparedClient {
-            provider: target,
-            key: Zeroizing::new(b"synthetic-test-key".to_vec()),
-            shared_preferences: String::new(),
-        };
+    let client = PreparedClient {
+        provider: target,
+        key: Zeroizing::new(b"synthetic-test-key".to_vec()),
+        shared_preferences: String::new(),
+    };
     assert_eq!(
         client.request("zh-CN", &messages, &cancelled).unwrap().as_deref(),
         Some("先测中文输入")
@@ -300,12 +288,11 @@ fn live_empty_prompt_voice_evaluation() {
     let mut target = provider("responses");
     target.base_url = config["base_url"].as_str().unwrap().into();
     target.model = config["model"].as_str().unwrap().into();
-    let client =
-        PreparedClient {
-            provider: target,
-            key: Zeroizing::new(key.trim().as_bytes().to_vec()),
-            shared_preferences: String::new(),
-        };
+    let client = PreparedClient {
+        provider: target,
+        key: Zeroizing::new(key.trim().as_bytes().to_vec()),
+        shared_preferences: String::new(),
+    };
     let mut results = Vec::new();
     for case in cases.as_array().unwrap() {
         let messages: Vec<_> = case["messages"]

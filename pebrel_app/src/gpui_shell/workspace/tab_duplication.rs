@@ -255,15 +255,11 @@ mod tests {
         let serialized = serde_json::to_vec(&original).unwrap();
         let decoded: LaunchSession = serde_json::from_slice(&serialized).unwrap();
         assert_eq!(decoded, original);
-        let (copied, cwd) = copy_launch(
-            decoded,
-            CopyKind::Duplicate,
-            PaneOrigin {
-                guest: None,
-                cwd: directory.path().to_str().unwrap(),
-                host_cwd: Some(directory.path().into()),
-            },
-        );
+        let (copied, cwd) = copy_launch(decoded, CopyKind::Duplicate, PaneOrigin {
+            guest: None,
+            cwd: directory.path().to_str().unwrap(),
+            host_cwd: Some(directory.path().into()),
+        });
         assert_eq!(copied, original);
         let crate::gpui_shell::terminal::view::TerminalLaunch::Command { shell, cwd, .. } =
             NebulaWorkspace::terminal_launch_from_session(&copied, cwd)
@@ -294,10 +290,15 @@ mod tests {
         }
         assert!(inherit_guest_directory(&mut launch, "/guest directory"));
         let LaunchSession::Command { args, .. } = launch else { unreachable!() };
-        assert_eq!(
-            args,
-            ["--cd", "/guest directory", "-d", "Team Linux", "--exec", "tool", "two words"]
-        );
+        assert_eq!(args, [
+            "--cd",
+            "/guest directory",
+            "-d",
+            "Team Linux",
+            "--exec",
+            "tool",
+            "two words"
+        ]);
     }
 
     #[test]
@@ -305,11 +306,11 @@ mod tests {
         let original = LaunchSession::Serial { destination: "serial:COM3,9600,7E2".into() };
         let restored: LaunchSession =
             serde_json::from_str(&serde_json::to_string(&original).unwrap()).unwrap();
-        let (copied, cwd) = copy_launch(
-            restored,
-            CopyKind::Duplicate,
-            PaneOrigin { guest: None, cwd: "", host_cwd: None },
-        );
+        let (copied, cwd) = copy_launch(restored, CopyKind::Duplicate, PaneOrigin {
+            guest: None,
+            cwd: "",
+            host_cwd: None,
+        });
         assert_eq!(copied, original);
         assert!(matches!(NebulaWorkspace::terminal_launch_from_session(&copied, cwd),
             crate::gpui_shell::terminal::view::TerminalLaunch::Serial { destination }
@@ -352,10 +353,17 @@ mod tests {
         };
         assert!(inherit_guest_directory(&mut launch, "/home/guest"));
         let LaunchSession::Profile { args, .. } = launch else { panic!("profile identity lost") };
-        assert_eq!(
-            args,
-            ["--cd", "/home/guest", "-d", "Debian", "-u", "guest", "--exec", "zsh", "-l"]
-        );
+        assert_eq!(args, [
+            "--cd",
+            "/home/guest",
+            "-d",
+            "Debian",
+            "-u",
+            "guest",
+            "--exec",
+            "zsh",
+            "-l"
+        ]);
     }
 
     #[test]
@@ -454,15 +462,11 @@ mod tests {
         };
         let expected = profile.clone();
         let launch = crate::profile_launch::snapshot(profile);
-        let (launch, cwd) = copy_launch(
-            launch,
-            CopyKind::Split,
-            PaneOrigin {
-                guest: None,
-                cwd: current.path().to_str().unwrap(),
-                host_cwd: Some(current.path().into()),
-            },
-        );
+        let (launch, cwd) = copy_launch(launch, CopyKind::Split, PaneOrigin {
+            guest: None,
+            cwd: current.path().to_str().unwrap(),
+            host_cwd: Some(current.path().into()),
+        });
         let TerminalLaunch::Profile { profile, cwd } =
             NebulaWorkspace::terminal_launch_from_session(&launch, cwd)
         else {

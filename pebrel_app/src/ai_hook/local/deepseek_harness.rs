@@ -11,10 +11,10 @@ use std::process::{Command, Stdio};
 const BUNDLE_NAME: &str = "@pebrel/deepseek-harness-bridge";
 const DOWNLOAD_PAGE: &str = "https://github.com/deepseek-ai/deepseek-harness/releases/latest";
 // Upstream fixed production download documented in apps/desktop/publishing.
-const WINDOWS_INSTALLER_URL: &str = "https://download.deepseek.com/desktop/dsh-latest-windows-x64.exe";
+const WINDOWS_INSTALLER_URL: &str =
+    "https://download.deepseek.com/desktop/dsh-latest-windows-x64.exe";
 
-const BRIDGE_JS: &str =
-    include_str!("../../../../integrations/deepseek-harness-bridge/index.js");
+const BRIDGE_JS: &str = include_str!("../../../../integrations/deepseek-harness-bridge/index.js");
 const BRIDGE_PACKAGE: &str =
     include_str!("../../../../integrations/deepseek-harness-bridge/package.json");
 const BRIDGE_PATCH: &str =
@@ -37,8 +37,7 @@ pub(crate) fn inspect() -> State {
     let desktop_executable = desktop_executable();
     let dsh_cli = dsh_cli(desktop_executable.as_deref());
     let profile_manifest = profile_dir().map(|path| path.join("package.json"));
-    let profile_initialized =
-        profile_manifest.as_ref().is_some_and(|path| path.is_file());
+    let profile_initialized = profile_manifest.as_ref().is_some_and(|path| path.is_file());
     let bridge_directory = bridge_directory();
     let (hook_installed, hook_current) = profile_manifest
         .as_deref()
@@ -70,9 +69,7 @@ fn profile_dir() -> Option<PathBuf> {
 }
 
 fn bridge_directory() -> PathBuf {
-    pebrel_settings::settings_dir()
-        .join("integrations")
-        .join("deepseek-harness-bridge")
+    pebrel_settings::settings_dir().join("integrations").join("deepseek-harness-bridge")
 }
 
 pub(crate) fn desktop_executable() -> Option<PathBuf> {
@@ -90,13 +87,13 @@ pub(crate) fn desktop_executable() -> Option<PathBuf> {
     }
     for variable in ["ProgramFiles", "ProgramW6432"] {
         if let Some(program_files) = std::env::var_os(variable) {
-            candidates.push(
-                PathBuf::from(program_files).join("DeepSeek Harness/DeepSeek Harness.exe"),
-            );
+            candidates
+                .push(PathBuf::from(program_files).join("DeepSeek Harness/DeepSeek Harness.exe"));
         }
     }
     if let Some(home) = crate::platform::dirs::home_dir() {
-        candidates.push(home.join("Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness"));
+        candidates
+            .push(home.join("Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness"));
         candidates.push(home.join(".local/bin/deepseek-harness-desktop"));
     }
     candidates.into_iter().find(|path| path.is_file())
@@ -203,8 +200,7 @@ fn inspect_manifest(path: &Path, bridge_dir: &Path) -> (bool, bool) {
         .is_some_and(|bundles| bundles.iter().any(|value| value.as_str() == Some(BUNDLE_NAME)));
     let installed = dependency || bundle;
     let file_matches = |name: &str, expected: &str| {
-        std::fs::read_to_string(bridge_dir.join(name))
-            .is_ok_and(|actual| actual == expected)
+        std::fs::read_to_string(bridge_dir.join(name)).is_ok_and(|actual| actual == expected)
     };
     let current = dependency
         && bundle
@@ -267,11 +263,7 @@ fn verify_windows_installer(installer: &Path) -> std::io::Result<()> {
 }
 
 fn find_uninstaller(executable: &Path) -> Option<PathBuf> {
-    const NAMES: &[&str] = &[
-        "Uninstall DeepSeek Harness.exe",
-        "unins000.exe",
-        "uninstall.exe",
-    ];
+    const NAMES: &[&str] = &["Uninstall DeepSeek Harness.exe", "unins000.exe", "uninstall.exe"];
     let parent = executable.parent()?;
     let find_in = |directory: &Path| {
         NAMES.iter().map(|name| directory.join(name)).find(|path| path.is_file())
@@ -290,10 +282,8 @@ fn find_uninstaller(executable: &Path) -> Option<PathBuf> {
 fn run_dsh(cli: &Path, arguments: &[&str]) -> std::io::Result<()> {
     #[cfg(windows)]
     {
-        let extension_is_cmd = cli
-            .extension()
-            .and_then(std::ffi::OsStr::to_str)
-            .is_some_and(|extension| {
+        let extension_is_cmd =
+            cli.extension().and_then(std::ffi::OsStr::to_str).is_some_and(|extension| {
                 extension.eq_ignore_ascii_case("cmd") || extension.eq_ignore_ascii_case("bat")
             });
         if extension_is_cmd {
@@ -305,10 +295,8 @@ fn run_dsh(cli: &Path, arguments: &[&str]) -> std::io::Result<()> {
                 command_line.push_str(&format!("\"{}\"", argument.replace('"', "\"\"")));
             }
             command_line.push('"');
-            let status = Command::new("cmd.exe")
-                .args(["/D", "/S", "/C"])
-                .arg(command_line)
-                .status()?;
+            let status =
+                Command::new("cmd.exe").args(["/D", "/S", "/C"]).arg(command_line).status()?;
             return if status.success() {
                 Ok(())
             } else {
@@ -341,9 +329,9 @@ pub(crate) fn install_hook() -> std::io::Result<()> {
             "Open DeepSeek Harness Desktop once to initialize its desktop profile, then refresh Agents.",
         ));
     }
-    let cli = state.dsh_cli.ok_or_else(|| {
-        std::io::Error::other("The Desktop-bundled dsh command was not found.")
-    })?;
+    let cli = state
+        .dsh_cli
+        .ok_or_else(|| std::io::Error::other("The Desktop-bundled dsh command was not found."))?;
     write_owned_bundle()?;
     let bundle = bridge_directory().to_string_lossy().into_owned();
     run_dsh(&cli, &["plugin", "--profile", "desktop", "add", &bundle])?;
@@ -366,12 +354,14 @@ pub(crate) fn remove_hook() -> std::io::Result<()> {
             "Quit DeepSeek Harness Desktop before installing or removing its profile plugin.",
         ));
     }
-    let cli = state.dsh_cli.ok_or_else(|| {
-        std::io::Error::other("The Desktop-bundled dsh command was not found.")
-    })?;
+    let cli = state
+        .dsh_cli
+        .ok_or_else(|| std::io::Error::other("The Desktop-bundled dsh command was not found."))?;
     run_dsh(&cli, &["plugin", "--profile", "desktop", "remove", BUNDLE_NAME])?;
     if inspect().hook_installed {
-        return Err(std::io::Error::other("The DeepSeek Harness bridge remains in the Desktop profile."));
+        return Err(std::io::Error::other(
+            "The DeepSeek Harness bridge remains in the Desktop profile.",
+        ));
     }
     match std::fs::remove_dir_all(bridge_directory()) {
         Ok(()) => {},
@@ -388,9 +378,9 @@ pub(crate) fn launch_desktop() -> std::io::Result<()> {
             "DeepSeek Harness is already running. Quit it from the tray before launching it through Pebrel.",
         ));
     }
-    let executable = state.desktop_executable.ok_or_else(|| {
-        std::io::Error::other("DeepSeek Harness Desktop is not installed.")
-    })?;
+    let executable = state
+        .desktop_executable
+        .ok_or_else(|| std::io::Error::other("DeepSeek Harness Desktop is not installed."))?;
     let helper = super::helper_path();
     let pipe = std::env::var_os(crate::ai_hook::PIPE_ENV)
         .or_else(|| std::env::var_os(crate::ai_hook::LEGACY_PIPE_ENV));
@@ -421,19 +411,19 @@ pub(crate) fn launch_desktop() -> std::io::Result<()> {
         }
         std::thread::sleep(std::time::Duration::from_millis(250));
     }
-    Err(std::io::Error::other(
-        "DeepSeek Harness process did not appear after launch.",
-    ))
+    Err(std::io::Error::other("DeepSeek Harness process did not appear after launch."))
 }
 
 pub(crate) fn uninstall_desktop() -> std::io::Result<()> {
     let state = inspect();
     if state.desktop_running {
-        return Err(std::io::Error::other("Quit DeepSeek Harness Desktop from its tray menu before uninstalling it; closing the window only hides it."));
+        return Err(std::io::Error::other(
+            "Quit DeepSeek Harness Desktop from its tray menu before uninstalling it; closing the window only hides it.",
+        ));
     }
-    let executable = state.desktop_executable.ok_or_else(|| {
-        std::io::Error::other("DeepSeek Harness Desktop is not installed.")
-    })?;
+    let executable = state
+        .desktop_executable
+        .ok_or_else(|| std::io::Error::other("DeepSeek Harness Desktop is not installed."))?;
     // Locate the uninstaller before changing the profile so a missing setup
     // component does not leave the user's Desktop profile half-uninstalled.
     // Electron/NSIS layouts may keep the executable in a versioned
@@ -445,9 +435,7 @@ pub(crate) fn uninstall_desktop() -> std::io::Result<()> {
     if status.success() {
         Ok(())
     } else {
-        Err(std::io::Error::other(format!(
-            "DeepSeek Harness uninstaller exited with {status}."
-        )))
+        Err(std::io::Error::other(format!("DeepSeek Harness uninstaller exited with {status}.")))
     }
 }
 
@@ -466,12 +454,11 @@ pub(crate) fn install_desktop() -> std::io::Result<()> {
                 .timeout_global(Some(std::time::Duration::from_secs(900)))
                 .build();
             let agent: ureq::Agent = config.into();
-            let mut response = agent
-                .get(WINDOWS_INSTALLER_URL)
-                .call()
-                .map_err(|error| std::io::Error::other(format!(
+            let mut response = agent.get(WINDOWS_INSTALLER_URL).call().map_err(|error| {
+                std::io::Error::other(format!(
                     "Could not download the official DeepSeek Harness installer: {error}"
-                )))?;
+                ))
+            })?;
             let mut file = std::fs::File::create(&partial)?;
             let reader = response.body_mut().as_reader();
             let mut limited = reader.take(1_000_000_001);
@@ -489,7 +476,7 @@ pub(crate) fn install_desktop() -> std::io::Result<()> {
             std::fs::File::open(&partial)?.read_exact(&mut signature)?;
             if signature != *b"MZ" {
                 return Err(std::io::Error::other(
-                    "The downloaded file is not a Windows executable; it was not run."
+                    "The downloaded file is not a Windows executable; it was not run.",
                 ));
             }
             drop(file);
@@ -509,9 +496,7 @@ pub(crate) fn install_desktop() -> std::io::Result<()> {
         if status.success() {
             Ok(())
         } else {
-            Err(std::io::Error::other(format!(
-                "DeepSeek Harness setup exited with {status}."
-            )))
+            Err(std::io::Error::other(format!("DeepSeek Harness setup exited with {status}.")))
         }
     }
     #[cfg(not(windows))]

@@ -307,9 +307,7 @@ impl NebulaWorkspace {
             .px(px(6.0))
             .bg(bar_bg)
             // 贴着卡角的那一枚自己收角，见 [`HeaderCorners`]。
-            .when(corners.top_left, |bar| {
-                bar.rounded_tl(crate::gpui_shell::theme::card_radius(cx))
-            })
+            .when(corners.top_left, |bar| bar.rounded_tl(crate::gpui_shell::theme::card_radius(cx)))
             .when(corners.top_right, |bar| {
                 bar.rounded_tr(crate::gpui_shell::theme::card_radius(cx))
             })
@@ -384,8 +382,13 @@ impl NebulaWorkspace {
                             .text_size(px(title_px))
                             .font_weight(FontWeight::NORMAL)
                             .text_color(ink)
-                            .tooltip(move |window, cx| super::tab_presentation::tooltip(
-                                language.text(Message::WorkspacePaneRenameHint).into(), window, cx))
+                            .tooltip(move |window, cx| {
+                                super::tab_presentation::tooltip(
+                                    language.text(Message::WorkspacePaneRenameHint).into(),
+                                    window,
+                                    cx,
+                                )
+                            })
                             .child(text)
                             .into_any_element(),
                     }),
@@ -408,10 +411,7 @@ impl NebulaWorkspace {
                             } else {
                                 language.text(Message::WorkspacePaneBroadcastInputTooltip)
                             })
-                            .child(broadcast_mark(
-                                title_px,
-                                if broadcast { accent } else { muted },
-                            ))
+                            .child(broadcast_mark(title_px, if broadcast { accent } else { muted }))
                             .on_click(cx.listener(move |this, _, window, cx| {
                                 cx.stop_propagation();
                                 this.toggle_tab_broadcast(tab_ix, window, cx);
@@ -486,10 +486,10 @@ impl NebulaWorkspace {
                 window,
                 cx,
                 crate::display::ToastKind::Info,
-                language.format(
-                    Message::WorkspacePaneBroadcastEnabled,
-                    &[("count", &count.to_string())],
-                ),
+                language.format(Message::WorkspacePaneBroadcastEnabled, &[(
+                    "count",
+                    &count.to_string(),
+                )]),
             );
         }
         cx.notify();

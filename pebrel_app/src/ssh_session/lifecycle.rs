@@ -341,6 +341,7 @@ impl ShellChannel {
 
 impl Deref for ShellChannel {
     type Target = ChannelWriteHalf<client::Msg>;
+
     fn deref(&self) -> &Self::Target {
         self.channel.as_ref().expect("SSH channel exists until drop")
     }

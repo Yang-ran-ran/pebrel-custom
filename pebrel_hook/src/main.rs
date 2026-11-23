@@ -8,19 +8,18 @@
 //! Nebula instance over a named pipe and exits.
 //! Design constraints, in order:
 //!
-//! 1. INVISIBLE: a Stop hook's exit code is meaningful to claude (non-zero
-//!    surfaces an error banner, 2 even blocks the turn), and kimi's `Stop` is
-//!    likewise a blockable event. Every path — including panic — must exit 0,
-//!    fast. Claude and kimi also write the payload to our stdin, so those modes
-//!    drain stdin within a bounded invocation even when the message goes nowhere.
-//!    A caller retaining stdin or a stalled receiver must not leave this helper
-//!    running indefinitely and holding the installed executable open.
-//! 2. SCOPED: the hook config is global (settings.json / kimi's config.toml),
-//!    but the effect must be Nebula-only. The scope guard is the environment:
-//!    NEBULA_NOTIFY_PIPE only exists for processes spawned inside Nebula.
-//!    Anywhere else it forwards nothing and exits without affecting the caller.
-//! 3. BOUNDED: pure std, no JSON handling (Pebrel parses), one pipe write.
-//!    Forwarding has a deadline; startup and notification latency depend on the host.
+//! 1. INVISIBLE: a Stop hook's exit code is meaningful to claude (non-zero surfaces an error
+//!    banner, 2 even blocks the turn), and kimi's `Stop` is likewise a blockable event. Every path
+//!    — including panic — must exit 0, fast. Claude and kimi also write the payload to our stdin,
+//!    so those modes drain stdin within a bounded invocation even when the message goes nowhere. A
+//!    caller retaining stdin or a stalled receiver must not leave this helper running indefinitely
+//!    and holding the installed executable open.
+//! 2. SCOPED: the hook config is global (settings.json / kimi's config.toml), but the effect must
+//!    be Nebula-only. The scope guard is the environment: NEBULA_NOTIFY_PIPE only exists for
+//!    processes spawned inside Nebula. Anywhere else it forwards nothing and exits without
+//!    affecting the caller.
+//! 3. BOUNDED: pure std, no JSON handling (Pebrel parses), one pipe write. Forwarding has a
+//!    deadline; startup and notification latency depend on the host.
 //!
 //! Usage (installed by `nebula setup-ai` / Nebula's boot self-heal):
 //! ```text

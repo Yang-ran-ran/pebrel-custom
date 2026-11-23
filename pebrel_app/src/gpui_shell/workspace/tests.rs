@@ -485,18 +485,9 @@ fn ai_hook_routing_never_falls_back_for_a_stale_exact_pane() {
 #[test]
 fn deepseek_hook_without_explicit_pane_routes_by_session_workspace_cwd() {
     let pane_ids = [7u64, 11];
-    let pane_cwds = vec![
-        (7, "C:/work/alpha".to_owned()),
-        (11, "C:/work/beta".to_owned()),
-    ];
+    let pane_cwds = vec![(7, "C:/work/alpha".to_owned()), (11, "C:/work/beta".to_owned())];
     assert_eq!(
-        ai_hook_target_pane_for_cwd(
-            &pane_ids,
-            None,
-            Some(11),
-            Some("C:/work/alpha/"),
-            &pane_cwds,
-        ),
+        ai_hook_target_pane_for_cwd(&pane_ids, None, Some(11), Some("C:/work/alpha/"), &pane_cwds,),
         Some(7)
     );
     assert_eq!(
@@ -504,13 +495,16 @@ fn deepseek_hook_without_explicit_pane_routes_by_session_workspace_cwd() {
         Some(11)
     );
     assert_eq!(
-        ai_hook_target_pane_for_cwd(&pane_ids, Some(99), Some(11), Some("C:/work/alpha"), &pane_cwds),
+        ai_hook_target_pane_for_cwd(
+            &pane_ids,
+            Some(99),
+            Some(11),
+            Some("C:/work/alpha"),
+            &pane_cwds
+        ),
         None
     );
-    assert_eq!(
-        ai_hook_target_pane_for_cwd(&pane_ids, None, Some(11), None, &pane_cwds),
-        Some(11)
-    );
+    assert_eq!(ai_hook_target_pane_for_cwd(&pane_ids, None, Some(11), None, &pane_cwds), Some(11));
 }
 
 #[test]

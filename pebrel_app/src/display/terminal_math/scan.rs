@@ -171,25 +171,24 @@ impl TextGrid {
     /// `$$`, and two of its rules split a display block with a blank row:
     ///
     /// * Claude Code (09-03 screenshot, see
-    ///   `claude_code_display_blocks_from_screenshot_pair_and_compile`): a row
-    ///   holding only `=` is a setext underline, so the row above becomes a
-    ///   heading, the `=` disappears and a blank row is emitted in its place.
-    /// * Codex (`codex-rs/tui/src/markdown_render.rs`, verified in source, not
-    ///   observed): a formula row starting with `- ` / `+ ` / `* ` interrupts
-    ///   the paragraph as a list item (pulldown-cmark `firstpass.rs`,
-    ///   `scan_paragraph_interrupt_no_table`), `start_list` pushes a blank
-    ///   line in front of it and `start_item` renders the marker as `- `
-    ///   with the rest of the block, closer included, indented two cells.
+    ///   `claude_code_display_blocks_from_screenshot_pair_and_compile`): a row holding only `=` is
+    ///   a setext underline, so the row above becomes a heading, the `=` disappears and a blank row
+    ///   is emitted in its place.
+    /// * Codex (`codex-rs/tui/src/markdown_render.rs`, verified in source, not observed): a formula
+    ///   row starting with `- ` / `+ ` / `* ` interrupts the paragraph as a list item
+    ///   (pulldown-cmark `firstpass.rs`, `scan_paragraph_interrupt_no_table`), `start_list` pushes
+    ///   a blank line in front of it and `start_item` renders the marker as `- ` with the rest of
+    ///   the block, closer included, indented two cells.
     ///
     /// `open` is the opener's position; when it stands alone on its row the
     /// search may step over such a gap, under four conditions that together
     /// keep the orphan-closer case above on the pending path:
     ///
-    /// 1. the block already has content above the gap — an orphan closer is
-    ///    followed by its blank row immediately;
+    /// 1. the block already has content above the gap — an orphan closer is followed by its blank
+    ///    row immediately;
     /// 2. the gap is a single row — two blank rows are a real section break;
-    /// 3. the row after the gap carries math evidence of its own — prose does
-    ///    not, so the swallowed-paragraph shape stops right there;
+    /// 3. the row after the gap carries math evidence of its own — prose does not, so the
+    ///    swallowed-paragraph shape stops right there;
     /// 4. past a gap the closer must stand alone on its row, and lie within
     ///    [`DISPLAY_BLOCK_GAP_SEARCH_ROWS`] of the opener.
     pub(super) fn find_closing(

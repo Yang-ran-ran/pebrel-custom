@@ -87,9 +87,9 @@ impl SettingsPane {
         let sequence = self.provider_test_seq;
         self.provider_test_running = true;
         self.provider_status = Some(ProviderStatus::Testing);
-        let task = cx.background_executor().spawn(async move {
-            crate::ai_providers::test_provider_with_key(&provider, key)
-        });
+        let task = cx
+            .background_executor()
+            .spawn(async move { crate::ai_providers::test_provider_with_key(&provider, key) });
         cx.spawn_in(window, async move |this, cx| {
             let result = task.await;
             let _ = this.update_in(cx, |this, _window, cx| {
@@ -105,7 +105,8 @@ impl SettingsPane {
                 });
                 cx.notify();
             });
-        }).detach();
+        })
+        .detach();
         cx.notify();
     }
 
@@ -126,9 +127,8 @@ impl SettingsPane {
             },
         };
         if provider.kind != ProviderKind::DeepSeek {
-            self.provider_status = Some(ProviderStatus::Error(
-                "Select the DeepSeek API preset first".into(),
-            ));
+            self.provider_status =
+                Some(ProviderStatus::Error("Select the DeepSeek API preset first".into()));
             cx.notify();
             return;
         }
@@ -164,15 +164,13 @@ impl SettingsPane {
                 }
                 this.provider_test_running = false;
                 this.provider_status = Some(match result {
-                    Ok((_, preview)) => ProviderStatus::GenerationTest {
-                        preview,
-                        elapsed_ms,
-                    },
+                    Ok((_, preview)) => ProviderStatus::GenerationTest { preview, elapsed_ms },
                     Err(error) => ProviderStatus::Error(error),
                 });
                 cx.notify();
             });
-        }).detach();
+        })
+        .detach();
         cx.notify();
     }
 
@@ -504,12 +502,11 @@ impl SettingsPane {
                                         menu = menu.item(PopupMenuItem::new(label).on_click(
                                             move |_, _, cx| {
                                                 let _ = owner.update(cx, |this, cx| {
-                                                    this.provider_ui.draft_kind = Some(
-                                                        super::provider_kind_for_protocol(
+                                                    this.provider_ui.draft_kind =
+                                                        Some(super::provider_kind_for_protocol(
                                                             current_kind,
                                                             selected_kind,
-                                                        ),
-                                                    );
+                                                        ));
                                                     this.provider_ui.draft_wire_api = Some(label);
                                                     this.provider_codex_confirm = None;
                                                     this.provider_ui.sequence =
