@@ -67,8 +67,7 @@ class CiPlanCliTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue(
                 output.read_text(encoding="utf-8").startswith(
-                'native_matrix=[{"os":"ubuntu-24.04"},{"os":"windows-2022"},{"os":"macos-26"},'
-                '{"os":"windows-11-arm"},{"os":"macos-26-intel"}]\n'
+                'native_matrix=[{"os":"ubuntu-24.04"},{"os":"macos-26"},{"os":"macos-26-intel"}]\n'
                 'release_matrix=[{"os":"macos-26"},{"os":"macos-26-intel"}]\n'),
             )
             plan = self.outputs(output)
@@ -77,9 +76,12 @@ class CiPlanCliTests(unittest.TestCase):
             self.assertEqual(ready.returncode, 0, ready.stderr)
             self.assertEqual(plan, self.outputs(ready_output))
             self.assertEqual(len(plan["check_matrix"]), 7)
-            self.assertTrue(all(row["scheduled"] == "true" for row in plan["check_matrix"]))
+            scheduled = {row["name"]: row["scheduled"] for row in plan["check_matrix"]}
+            self.assertEqual(scheduled["Tests (windows-2022)"], "false")
+            self.assertEqual(scheduled["Tests (windows-11-arm)"], "false")
+            self.assertEqual(scheduled["Tests (ubuntu-24.04)"], "true")
 
-    def test_ready_pr_has_all_native_and_release_checks(self) -> None:
+    def test_ready_pr_uses_linux_and_macos_without_windows_runners(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "github-output"
             result = self.run_cli("pull_request", {"pull_request": {"draft": False}}, output)
@@ -88,7 +90,7 @@ class CiPlanCliTests(unittest.TestCase):
             plan = self.outputs(output)
             self.assertEqual(
                 [row["os"] for row in plan["native_matrix"]],
-                ["ubuntu-24.04", "windows-2022", "macos-26", "windows-11-arm", "macos-26-intel"],
+                ["ubuntu-24.04", "macos-26", "macos-26-intel"],
             )
             self.assertEqual(
                 [row["os"] for row in plan["release_matrix"]],
@@ -107,7 +109,7 @@ class CiPlanCliTests(unittest.TestCase):
             self.assertTrue(lines[1].startswith("native_matrix=[{"))
             self.assertTrue(lines[2].startswith("release_matrix=[{"))
 
-    def test_merge_group_and_non_pr_events_have_full_coverage(self) -> None:
+    def test_non_pr_events_keep_full_native_coverage(self) -> None:
         events = ("merge_group", "push", "workflow_dispatch", "workflow_call", "schedule")
         with tempfile.TemporaryDirectory() as directory:
             for event_name in events:
@@ -193,7 +195,7 @@ class CiPlanCliTests(unittest.TestCase):
             result = self.run_cli("pull_request", payload, output)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual([row["os"] for row in self.outputs(output)["native_matrix"]],
-                             ["ubuntu-24.04", "windows-2022", "windows-11-arm"])
+                             ["ubuntu-24.04"])
 
     def test_removing_a_platform_condition_in_a_generic_file_keeps_both_hosts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -215,7 +217,7 @@ class CiPlanCliTests(unittest.TestCase):
             result = self.run_cli("pull_request", payload, output)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual([row["os"] for row in self.outputs(output)["native_matrix"]],
-                             ["ubuntu-24.04", "windows-2022", "windows-11-arm"])
+                             ["ubuntu-24.04"])
 
     def test_non_standard_json_constant_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -259,24 +261,25 @@ class PrPathPolicyTests(unittest.TestCase):
 
     def test_representative_prs_select_only_the_required_native_hosts(self) -> None:
         full = {p.runner for p in PLATFORMS}
+        automatic = {runner for runner in full if not runner.startswith("windows-")}
         cases = (
             (["README.md", "docs/user-guide.md", "architecture/notes/scripts/ci/example.md"], set()),
             (["pebrel_app/src/gpui_shell/settings_pane/colors.rs"], {"ubuntu-24.04"}),
             (["pebrel_terminal/src/term/mod.rs", "pebrel_app/src/backup_remote.rs"], {"ubuntu-24.04"}),
-            (["pebrel_terminal/src/tty/windows/mod.rs"], {"ubuntu-24.04", "windows-2022", "windows-11-arm"}),
-            (["scripts/prepare-windows-runtime.ps1"], {"ubuntu-24.04", "windows-2022", "windows-11-arm"}),
+            (["pebrel_terminal/src/tty/windows/mod.rs"], {"ubuntu-24.04"}),
+            (["scripts/prepare-windows-runtime.ps1"], {"ubuntu-24.04"}),
             (["pebrel_app/src/platform/macos/notifications.rs"], {"ubuntu-24.04", "macos-26", "macos-26-intel"}),
             (["pebrel_app/src/notify_macos.rs"], {"ubuntu-24.04", "macos-26", "macos-26-intel"}),
             (["pebrel_terminal/src/tty/unix.rs"], {"ubuntu-24.04", "macos-26", "macos-26-intel"}),
-            (["pebrel_app/src/platform/process.rs"], full),
-            (["Cargo.lock"], full),
-            (["pebrel_terminal/Cargo.toml"], full),
-            ([".github/workflows/linux-lua.yml"], full),
-            (["scripts/ci_plan.py"], full),
-            (["scripts/package-macos.sh"], full),
-            (["pebrel_terminal/src/scan_x86_64.rs"], full),
-            (["architecture/dependencies.toml"], full),
-            (["new_native_module/source.rs"], full),
+            (["pebrel_app/src/platform/process.rs"], automatic),
+            (["Cargo.lock"], automatic),
+            (["pebrel_terminal/Cargo.toml"], automatic),
+            ([".github/workflows/linux-lua.yml"], automatic),
+            (["scripts/ci_plan.py"], automatic),
+            (["scripts/package-macos.sh"], automatic),
+            (["pebrel_terminal/src/scan_x86_64.rs"], automatic),
+            (["architecture/dependencies.toml"], automatic),
+            (["new_native_module/source.rs"], automatic),
         )
         for paths, expected in cases:
             for draft in (False, True):

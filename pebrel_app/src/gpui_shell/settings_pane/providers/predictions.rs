@@ -50,9 +50,8 @@ impl SettingsPane {
         let shared_memory = cx.new(|cx| {
             InputState::new(window, cx).multi_line(true).default_value(saved_memory.clone())
         });
-        let memory_subscription = cx.subscribe(
-            &shared_memory,
-            |this: &mut Self, _, event: &InputEvent, cx| {
+        let memory_subscription =
+            cx.subscribe(&shared_memory, |this: &mut Self, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
                     if let Some(ui) = this.provider_ui.predictions.as_mut() {
                         ui.memory_error = None;
@@ -60,8 +59,7 @@ impl SettingsPane {
                     }
                     cx.notify();
                 }
-            },
-        );
+            });
         self.provider_ui.predictions = Some(PredictionSettingsUi {
             provider_id: settings.provider_id.clone(),
             model,
@@ -304,10 +302,9 @@ impl SettingsPane {
                             .child(language.text(Message::PromptSuggestionsSharedMemoryTitle)),
                     )
                     .child(
-                        div()
-                            .text_size(px(11.0))
-                            .text_color(cx.theme().muted_foreground)
-                            .child(language.text(Message::PromptSuggestionsSharedMemoryDescription)),
+                        div().text_size(px(11.0)).text_color(cx.theme().muted_foreground).child(
+                            language.text(Message::PromptSuggestionsSharedMemoryDescription),
+                        ),
                     )
                     .child(Input::new(&ui.shared_memory).h(px(104.0)))
                     .child(
@@ -329,9 +326,11 @@ impl SettingsPane {
                                     div()
                                         .text_size(px(11.0))
                                         .text_color(cx.theme().muted_foreground)
-                                        .child(language.text(
-                                            Message::PromptSuggestionsSharedMemoryUnsaved,
-                                        )),
+                                        .child(
+                                            language.text(
+                                                Message::PromptSuggestionsSharedMemoryUnsaved,
+                                            ),
+                                        ),
                                 )
                             })
                             .when(ui.memory_saved && !memory_dirty, |row| {
@@ -339,9 +338,10 @@ impl SettingsPane {
                                     div()
                                         .text_size(px(11.0))
                                         .text_color(cx.theme().muted_foreground)
-                                        .child(language.text(
-                                            Message::PromptSuggestionsSharedMemorySaved,
-                                        )),
+                                        .child(
+                                            language
+                                                .text(Message::PromptSuggestionsSharedMemorySaved),
+                                        ),
                                 )
                             })
                             .when_some(ui.memory_error.as_ref(), |row, error| {

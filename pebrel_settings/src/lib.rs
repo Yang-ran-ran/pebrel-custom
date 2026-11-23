@@ -7,10 +7,10 @@
 //!
 //! 同步事实（记录在案）：
 //! - `pebrel_app/src/display/ui/theme.rs` 是旧壳体内的既有实现；本 crate 的
-//!   色值与其逐字一致。旧壳按 P4 裁定冻结保留，新 UI 一律读这里；改主题
-//!   色值时两处同步，直到 P3 接入完成后旧壳引用此 crate。
-//! - `pebrel_terminal::tty::windows` 里有一份私有的同款路径/键值读取；引擎
-//!   不能依赖 UI 侧 crate（依赖方向是铁律），属有意保留的最小重复。
+//!   色值与其逐字一致。旧壳按 P4 裁定冻结保留，新 UI 一律读这里；改主题 色值时两处同步，直到 P3
+//!   接入完成后旧壳引用此 crate。
+//! - `pebrel_terminal::tty::windows` 里有一份私有的同款路径/键值读取；引擎 不能依赖 UI 侧
+//!   crate（依赖方向是铁律），属有意保留的最小重复。
 //! - `follow_system_theme` 的系统外观联动暂未在此实现（消费方自行处理）。
 
 use std::collections::HashMap;
@@ -891,12 +891,12 @@ impl BellModeName {
 /// 五档对应不同的 DWM 成本模型，落点在
 /// `gpui_shell::wallpaper::apply_windows_accent_policy`：
 /// - `None`：AccentPolicy 全零 + `DWMSBT_NONE`，透明交换链直接按内容 alpha 合成。
-/// - `Mica` / `MicaAlt`：系统合成器提供壁纸 backdrop、模糊和色调，
-///   Nebula 不读取壁纸文件，也不在客户区仿画材质；不逐帧采样其他窗口。
+/// - `Mica` / `MicaAlt`：系统合成器提供壁纸 backdrop、模糊和色调， Nebula
+///   不读取壁纸文件，也不在客户区仿画材质；不逐帧采样其他窗口。
 /// - `Aero`：实时 BlurBehind + 半透明深色玻璃色调。
-/// - `Acrylic`：`ACCENT_ENABLE_ACRYLICBLURBEHIND`。DWM 对窗口后方**实时
-///   内容**逐帧高斯模糊 + 噪点 + 饱和度。观感最好，也是唯一能透出后方其他
-///   窗口的档位；2026-08-22 实测这一档把 dwm.exe 顶到 28% 均值。
+/// - `Acrylic`：`ACCENT_ENABLE_ACRYLICBLURBEHIND`。DWM 对窗口后方**实时 内容**逐帧高斯模糊 + 噪点 +
+///   饱和度。观感最好，也是唯一能透出后方其他 窗口的档位；2026-08-22 实测这一档把 dwm.exe 顶到 28%
+///   均值。
 ///
 /// # 缺省为什么是 Mica 而不是 Acrylic
 ///
@@ -1170,6 +1170,7 @@ pub struct ThemeCardGeometry {
 
 /// 旧壳默认快速终端热键。
 pub const DEFAULT_QUICK_TERMINAL_HOTKEY: &str = "ctrl+`";
+pub const DEFAULT_BACKGROUND_IMAGE_OPACITY: f32 = 0.38;
 pub const DEFAULT_SIDEBAR_WIDTH: f32 = 230.0;
 pub const MIN_SIDEBAR_WIDTH: f32 = 170.0;
 pub const MAX_SIDEBAR_WIDTH: f32 = 420.0;
@@ -1324,7 +1325,7 @@ impl RuntimeSettings {
             background_image_opacity: raw
                 .f32("background_image_opacity")
                 .map(|o| o.clamp(0.0, 1.0))
-                .unwrap_or(0.38),
+                .unwrap_or(DEFAULT_BACKGROUND_IMAGE_OPACITY),
             background_image_fit: raw.value("background_image_fit").map(str::to_owned),
             background_image_alignment: raw.value("background_image_alignment").map(str::to_owned),
             background_image_cover_chrome: raw

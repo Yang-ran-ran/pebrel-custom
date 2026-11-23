@@ -50,7 +50,8 @@ fn requests_are_short_independent_and_contain_user_voice() {
     assert!(body.get("tools").is_none());
     assert_eq!(body["input"][0], json!({"role":"user","content":"先把光标测完"}));
     assert_eq!(body["instructions"], "Write the suggested user message in zh-CN.");
-    let (_, remembered) = payload(&responses, "zh-CN", &messages, "Prefer concise answers").unwrap();
+    let (_, remembered) =
+        payload(&responses, "zh-CN", &messages, "Prefer concise answers").unwrap();
     assert!(remembered["instructions"].as_str().unwrap().contains("Prefer concise answers"));
     assert_eq!(body["input"][1]["role"], "user");
     let fragment = body["input"][1]["content"].as_str().unwrap();
@@ -114,12 +115,11 @@ fn real_http_path_accepts_only_a_complete_result_and_never_follows_redirects() {
     let cancelled = AtomicBool::new(false);
     // Exercise the reusable production entrypoint; no provider file or keychain
     // is required after the snapshot has been prepared.
-    let client =
-        PreparedClient {
-            provider: target,
-            key: Zeroizing::new(b"synthetic-test-key".to_vec()),
-            shared_preferences: String::new(),
-        };
+    let client = PreparedClient {
+        provider: target,
+        key: Zeroizing::new(b"synthetic-test-key".to_vec()),
+        shared_preferences: String::new(),
+    };
     assert_eq!(
         client.request("zh-CN", &messages, &cancelled).unwrap().as_deref(),
         Some("先测中文输入")
@@ -153,12 +153,11 @@ fn live_empty_prompt_voice_evaluation() {
     let mut target = provider("responses");
     target.base_url = config["base_url"].as_str().unwrap().into();
     target.model = config["model"].as_str().unwrap().into();
-    let client =
-        PreparedClient {
-            provider: target,
-            key: Zeroizing::new(key.trim().as_bytes().to_vec()),
-            shared_preferences: String::new(),
-        };
+    let client = PreparedClient {
+        provider: target,
+        key: Zeroizing::new(key.trim().as_bytes().to_vec()),
+        shared_preferences: String::new(),
+    };
     let mut results = Vec::new();
     for case in cases.as_array().unwrap() {
         let messages: Vec<_> = case["messages"]

@@ -29,10 +29,10 @@ mod live_commands;
 mod live_edit;
 mod live_navigation;
 mod live_selection;
-mod mode_preferences;
 #[cfg(all(test, feature = "gpui-test-support"))]
 mod live_tests;
 mod loading;
+mod mode_preferences;
 mod object_edit;
 mod object_source;
 mod object_view;
@@ -233,15 +233,14 @@ impl TextFileView {
         // explicit per-document choice from the compact toolbar control.
         let markdown = matches!(language, "markdown");
         let mode_preference_identity = markdown.then(|| match &source {
-                DocumentSource::Local(path) => {
-                    let stable = std::fs::canonicalize(path).unwrap_or_else(|_| path.clone());
-                    format!("local:{}", stable.to_string_lossy())
-                },
-                DocumentSource::Remote(location) => format!("remote:{}", location.display()),
-            });
-        let initial_preview = mode_preference_identity
-            .as_deref()
-            .is_some_and(mode_preferences::load);
+            DocumentSource::Local(path) => {
+                let stable = std::fs::canonicalize(path).unwrap_or_else(|_| path.clone());
+                format!("local:{}", stable.to_string_lossy())
+            },
+            DocumentSource::Remote(location) => format!("remote:{}", location.display()),
+        });
+        let initial_preview =
+            mode_preference_identity.as_deref().is_some_and(mode_preferences::load);
         let input = cx.new(|cx| {
             InputState::new(window, cx)
                 .code_editor(language)

@@ -172,7 +172,14 @@ def plan_matrices(
         if not isinstance(draft, bool):
             raise PlanError("pull_request.draft must be a boolean")
         paths, platforms = _pr_changes(pull_request) if changed_paths is None else (changed_paths, set())
-        return _matrices(select_pr_platforms(paths) | platforms)
+        native, release = _matrices(select_pr_platforms(paths) | platforms)
+        # Automatic PR validation never allocates hosted Windows runners.
+        # Windows x64/ARM regression and release packaging are explicit manual
+        # operations; Linux and macOS retain their normal source coverage.
+        return (
+            [row for row in native if not row["os"].startswith("windows-")],
+            [row for row in release if not row["os"].startswith("windows-")],
+        )
 
     if event_name in FULL_EVENTS:
         return _matrices()
