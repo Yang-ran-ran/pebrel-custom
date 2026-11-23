@@ -68,7 +68,6 @@ impl SettingsPane {
     }
 
     /// 组与组之间的间隔。
-    ///
     pub(crate) fn group_divider(_cx: &Context<Self>) -> gpui::Div {
         div().w_full().h(px(GROUP_GAP - 8.0)).flex_shrink_0()
     }
@@ -311,12 +310,14 @@ impl SettingsPane {
 }
 
 pub(super) fn settings_card(cx: &App) -> gpui::Div {
-    v_flex()
-        .w_full()
-        .min_w_0()
-        .bg(crate::gpui_shell::theme::settings_card_fill(cx))
-        .rounded(px(CARD_RADIUS))
-        .shadow(crate::gpui_shell::theme::settings_card_shadow(cx))
+    let card = v_flex().w_full().min_w_0();
+    if cx.theme().is_dark() {
+        crate::gpui_shell::theme::settings_card(card, cx)
+    } else {
+        card.bg(crate::gpui_shell::theme::settings_card_fill(cx))
+            .rounded(px(CARD_RADIUS))
+            .shadow(crate::gpui_shell::theme::settings_card_shadow(cx))
+    }
 }
 
 /// 设置分组卡。`ParentElement` 把子元素收进卡内，调用点保持

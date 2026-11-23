@@ -11,11 +11,7 @@
     "saved": "Prediction settings saved.",
     "predicting": "{model} is predicting",
     "launcher_fallback": "Prompt predictions are unavailable. Starting {agent} normally. {error}",
-    "launcher_failed": "Could not start {agent}: {error}",
-    "shared_memory_title": "Shared AI preferences across documents",
-    "shared_memory_description": "Describe your preferred tone, formatting, and workflow. These preferences are shared across documents; document bodies are not automatically collected or sent.",
-    "shared_memory_unsaved": "Unsaved changes",
-    "shared_memory_saved": "Shared AI preferences saved."
+    "launcher_failed": "Could not start {agent}: {error}"
   },
   "native_result": {
     "json_items": "{count} items",

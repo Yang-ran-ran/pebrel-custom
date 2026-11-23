@@ -306,11 +306,7 @@ impl TextFileView {
         let scroll = self.scroll.clone();
         let live_mode = self.live_mode;
         let style = TextViewStyle {
-            image_base: if self.source.is_remote() {
-                None
-            } else {
-                self.path.parent().map(Arc::from)
-            },
+            image_base: self.path.parent().map(Arc::from),
             highlight_theme: cx.theme().highlight_theme.clone(),
             is_dark: cx.theme().is_dark(),
             paragraph_gap: gpui::rems(0.7),

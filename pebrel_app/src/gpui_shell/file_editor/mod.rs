@@ -32,7 +32,6 @@ mod live_selection;
 #[cfg(all(test, feature = "gpui-test-support"))]
 mod live_tests;
 mod loading;
-mod mode_preferences;
 mod object_edit;
 mod object_source;
 mod object_view;
@@ -126,7 +125,6 @@ pub struct TextFileView {
     history: edit_history::EditHistory,
     focus: FocusHandle,
     source: DocumentSource,
-    mode_preference_identity: Option<String>,
     document: Option<LoadedDocument>,
     operation: Option<DocumentOperation>,
     load_generation: u64,
@@ -229,18 +227,9 @@ impl TextFileView {
     ) -> Self {
         let path = source.path().to_owned();
         let language = super::code_tab::language_for_path(&path.to_string_lossy());
-        // Markdown documents open in source mode by default. Reading mode is an
-        // explicit per-document choice from the compact toolbar control.
-        let markdown = matches!(language, "markdown");
-        let mode_preference_identity = markdown.then(|| match &source {
-            DocumentSource::Local(path) => {
-                let stable = std::fs::canonicalize(path).unwrap_or_else(|_| path.clone());
-                format!("local:{}", stable.to_string_lossy())
-            },
-            DocumentSource::Remote(location) => format!("remote:{}", location.display()),
-        });
-        let initial_preview =
-            mode_preference_identity.as_deref().is_some_and(mode_preferences::load);
+        // Remote Markdown is edited as source. It must not resolve remote image
+        // paths through the local document preview's filesystem loader.
+        let markdown = matches!(language, "markdown") && !source.is_remote();
         let input = cx.new(|cx| {
             InputState::new(window, cx)
                 .code_editor(language)
@@ -293,7 +282,6 @@ impl TextFileView {
             history: edit_history::EditHistory::default(),
             focus: cx.focus_handle(),
             source,
-            mode_preference_identity,
             document: None,
             operation: None,
             load_generation: 0,
@@ -306,7 +294,7 @@ impl TextFileView {
             saving: false,
             notice: None,
             markdown,
-            preview: initial_preview,
+            preview: markdown,
             // 正文默认可选择；公式、图片通过独立草稿编辑，全文编辑仍由源码模式承担。
             live_mode: false,
             live_edit: None,
@@ -315,7 +303,7 @@ impl TextFileView {
             preview_stale: false,
             last_edit_cursor: None,
             resume_edit: false,
-            show_details: false,
+            show_details: markdown,
             details_hosted: false,
             info: false,
             outline: Outline::default(),
@@ -362,6 +350,7 @@ impl TextFileView {
     pub fn is_dirty(&self) -> bool {
         self.dirty || self.object_edit.as_ref().is_some_and(|edit| edit.changed)
     }
+
     pub fn is_saving(&self) -> bool {
         self.saving
     }
@@ -625,11 +614,6 @@ impl TextFileView {
         }
         self.finish_live_edit(cx);
         self.preview = !self.preview;
-        if let Some(identity) = &self.mode_preference_identity {
-            if let Err(error) = mode_preferences::save(identity, self.preview) {
-                log::warn!("could not persist document view mode: {error}");
-            }
-        }
         self.link_hover = None;
         self.link_hide_task = None;
         self.preview_images.update(cx, |images, cx| {
@@ -815,7 +799,8 @@ impl Render for TextFileView {
                     |view, _: &gpui_component::input::Escape, window, cx| {
                         if view.object_edit.is_some() {
                             if view.settle_object_composition(window, cx) {
-                                // Input 的 Escape 会继续冒泡；此处消费按键，避免同次 Escape 又取消草稿。
+                                // Input 的 Escape 会继续冒泡；此处消费按键，避免同次 Escape
+                                // 又取消草稿。
                                 cx.stop_propagation();
                             } else {
                                 view.cancel_object_edit(cx);
